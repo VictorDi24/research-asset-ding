@@ -6,10 +6,7 @@ x = cp.Variable(2, name="x")
 
 # Formulate objective and constraints
 objective = cp.Minimize(0.5 * cp.sum_squares(x) + np.array([1.0, 2.0]) @ x)
-constraints = [
-    x >= 0,
-    x[0] + x[1] == 1
-]
+constraints = [x >= 0, x[0] + x[1] == 1]
 
 # Form problem
 problem = cp.Problem(objective, constraints)

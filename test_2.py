@@ -1,5 +1,6 @@
-import numpy as np
 import cvxpy as cp
+import numpy as np
+
 
 def lp_problem():
     """Pure LP: only zero/nonneg cones, no SOC or PSD involved."""
@@ -66,9 +67,12 @@ def solver_options_demo():
     to see how solver_stats and status change."""
     prob1, _ = qp_problem()
     print(
-        "\ndefault settings -> status:", prob1.status,
-        "| iters:", prob1.solver_stats.num_iters,
-        "| solve_time:", prob1.solver_stats.solve_time,
+        "\ndefault settings -> status:",
+        prob1.status,
+        "| iters:",
+        prob1.solver_stats.num_iters,
+        "| solve_time:",
+        prob1.solver_stats.solve_time,
     )
 
     x2 = cp.Variable(10)
