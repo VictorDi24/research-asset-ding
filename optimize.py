@@ -1,13 +1,15 @@
 import functools
 import math
 import time
-from turtle import pos
+from types import MappingProxyType
 
 import cvxpy as cp
 import numpy as np
+import scipy.sparse as sp
 
 
 # defines constants
+@functools.lru_cache(maxsize=1)
 def get_config():
     return {
         "n_stocks": 2500,
@@ -20,6 +22,18 @@ def get_config():
         "sector_abs_weight": 1e-3,
         "eps": 1e-8,
     }
+
+
+def timer(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        print(f"{end_time - start_time:.4f} seconds")
+        return result
+
+    return wrapper
 
 
 x = cp.Variable(2 * get_config()["n_stocks"], name="x")
@@ -121,19 +135,19 @@ def build_constraints(
 ):
     constraints = []
 
-    zeros = np.zeros(config["n_stocks"])
-    ones = np.ones(config["n_stocks"])
-    diagonal_a = np.eye(config["n_stocks"])
-    double_diagonal = np.hstack((diagonal_a, diagonal_a))
-    diagonal_zeros = np.hstack(
-        (diagonal_a, np.zeros((config["n_stocks"], config["n_stocks"])))
+    zeros = np.zeros((config["n_stocks"]))
+    ones = np.ones((config["n_stocks"]))
+    diagonal_a = sp.eye(config["n_stocks"], format="csr")
+    double_diagonal = sp.hstack((diagonal_a, diagonal_a), format="csr")
+    diagonal_zeros = sp.hstack(
+        (diagonal_a, np.zeros((config["n_stocks"], config["n_stocks"]))), format="csr"
     )
-    zeros_diagonal = np.hstack(
-        (np.zeros((config["n_stocks"], config["n_stocks"])), diagonal_a)
+    zeros_diagonal = sp.hstack(
+        (np.zeros((config["n_stocks"], config["n_stocks"])), diagonal_a), format="csr"
     )
-    ones_zeros = np.hstack((ones, zeros))
-    zeros_ones = np.hstack((zeros, ones))
-    diagonal_negdiagonal = np.hstack((diagonal_a, -diagonal_a))
+    ones_zeros = sp.hstack((sp.coo_matrix(ones), sp.coo_matrix(zeros)), format="csr")
+    zeros_ones = sp.hstack((sp.coo_matrix(zeros), sp.coo_matrix(ones)), format="csr")
+    diagonal_negdiagonal = sp.hstack((diagonal_a, -diagonal_a), format="csr")
 
     # Zero case
     # zeros_case = [force_zero_padded @ x == config["eps"]]
@@ -226,50 +240,59 @@ def build_constraints(
     return constraints
 
 
+@timer
 def run_optimize(x, target_weights, constraints, config):
+
+    TOL = 1e-10
+    MAX_ITER = 1000000
+
+    # Clarabel Configuration
+    clarabel_opts = {
+        "solver": cp.CLARABEL,
+        "tol_feas": TOL,  # Primal & Dual feasibility threshold
+        "tol_gap_abs": TOL,  # Absolute duality gap
+        "tol_gap_rel": TOL,  # Relative duality gap
+        "max_iter": MAX_ITER,
+        "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
+    }
+
+    # PIQP Configuration
+    piqp_opts = {
+        "solver": cp.PIQP,
+        "eps_abs": TOL,  # Absolute tolerance (Primal, Dual, and Gap)
+        "eps_rel": 0.0,  # Set relative to 0.0 or 1e-9 to enforce absolute alignment
+        "max_iter": MAX_ITER,
+        "verbose": False,
+    }
+
     def objective():
         diff = x[: config["n_stocks"]] - target_weights[: config["n_stocks"]]
         return cp.sum_squares(diff)
 
-    # start timer
-    start_time = time.perf_counter()
+    # # start timer
+    # start_time = time.perf_counter()
 
     problem = cp.Problem(cp.Minimize(objective()), constraints=constraints)
-    problem.solve(solver=cp.CLARABEL, verbose=False)
+
+    problem.solve(**clarabel_opts)
+    # problem.solve(**piqp_opts)
 
     if problem.status == "optimal":
         optimize_weights = x.value[: config["n_stocks"]]
     else:
         optimize_weights = None
 
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
+    # end_time = time.perf_counter()
+    # elapsed_time = end_time - start_time
 
     print("Status:", problem.status)
     print("Optimal value:", problem.value)
-    print(f"\nSeconds: {elapsed_time}")
+    # print(f"\nSeconds: {elapsed_time}")
 
     return optimize_weights, x.value
 
 
-def run_optimization_pipeline():
-    config = get_config()
-
-    current_w, target_w = generate_weights()
-    sector_w = create_sectors(config)  # Assume this exists
-
-    lb, ub, all_pos, all_neg, force_zero = generate_bounds_masks(
-        current_w, target_w, config
-    )
-
-    constraints = build_constraints(
-        current_w, lb, ub, all_pos, all_neg, force_zero, sector_w, config
-    )
-
-    breakpoint()
-
-    optimize_weights, result_x = run_optimize(x, target_w, constraints, config)
-
+def verify_optimization(optimize_weights, all_pos, all_neg, result_x, sector_w, config):
     print("---------------- VERIFICATION: --------------")
     if optimize_weights is not None and result_x is not None:
         print(f"dollar neutral: {optimize_weights.sum()}")
@@ -302,7 +325,28 @@ def run_optimization_pipeline():
     print(f"sector_abs_weight: {config['sector_abs_weight']}")
     print(f"eps: {config['eps']}")
 
-    breakpoint()
+
+def run_optimization_pipeline():
+    config = get_config()
+
+    current_w, target_w = generate_weights()
+    sector_w = create_sectors(config)  # Assume this exists
+
+    lb, ub, all_pos, all_neg, force_zero = generate_bounds_masks(
+        current_w, target_w, config
+    )
+
+    constraints = build_constraints(
+        current_w, lb, ub, all_pos, all_neg, force_zero, sector_w, config
+    )
+
+    # breakpoint()
+
+    optimize_weights, result_x = run_optimize(x, target_w, constraints, config)
+
+    verify_optimization(optimize_weights, all_pos, all_neg, result_x, sector_w, config)
+
+    # breakpoint()
 
     return optimize_weights, result_x
 
