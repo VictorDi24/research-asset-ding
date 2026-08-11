@@ -27,8 +27,7 @@ def get_config():
     return {
         # "n_stocks": weights_one.shape[0],
         # "n_stocks": 2500,
-        "alpha_index": 2 * weights_one.shape[0],
-        "beta_index": 2 * weights_one.shape[0] + 1,
+        "number_buffer": 2,
         "n_sectors": 15,
         "abs_starting_weights": 0.012,
         "max_weight": 0.008,
@@ -81,15 +80,15 @@ def generate_bounds_masks(weights_one, weights_two, config):
     # Strict limits from individual_turnover and abs_weight
     lb_stocks = np.maximum(
         -config["max_weight"],
-        weights_one[: weights_one.shape[0] - config["individual_turnover"]],
+        weights_one[: weights_one.shape[0] // 2] - config["individual_turnover"],
     )
     ub_stocks = np.minimum(
         config["max_weight"],
-        weights_one[: weights_one.shape[0]] + config["individual_turnover"],
+        weights_one[: weights_one.shape[0] // 2] + config["individual_turnover"],
     )
 
     # Check if allows positive
-    pos_mask = weights_two[: weights_two.shape[0]] > 0
+    pos_mask = weights_two[: weights_two.shape[0] // 2] > 0
     adjust_pos = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
     force_pos = np.logical_and(pos_mask, adjust_pos)
 
@@ -101,7 +100,7 @@ def generate_bounds_masks(weights_one, weights_two, config):
     all_pos = np.logical_or(force_pos, already_pos)
 
     # Check if allows negative
-    neg_mask = weights_two[: weights_two.shape[0]] < 0
+    neg_mask = weights_two[: weights_two.shape[0] // 2] < 0
     adjust_neg = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
     force_neg = np.logical_and(neg_mask, adjust_neg)
 
@@ -114,34 +113,34 @@ def generate_bounds_masks(weights_one, weights_two, config):
 
     # Gross exposure x matrices
     all_pos_padded = np.hstack(
-        (all_pos, np.zeros(weights_two.shape[0], dtype=bool))
+        (all_pos, np.zeros(all_pos.shape[0], dtype=bool))
     ).astype(float)
     all_neg_padded = np.hstack(
-        (all_neg, np.zeros(weights_two.shape[0], dtype=bool))
+        (all_neg, np.zeros(all_neg.shape[0], dtype=bool))
     ).astype(float)
-    force_zero = weights_two[: weights_two.shape[0]] == 0
+    force_zero = weights_two[: weights_two.shape[0] // 2] == 0
     force_zero_padded = np.hstack(
-        (force_zero, np.zeros(weights_two.shape[0], dtype=bool))
+        (force_zero, np.zeros(force_zero.shape[0], dtype=bool))
     ).astype(float)
 
     return lb_stocks, ub_stocks, all_pos_padded, all_neg_padded, force_zero_padded
 
 
 def create_sectors(config, weights_two):
-    sector_weights = np.random.rand(config["n_sectors"], weights_two.shape[0])
+    sector_weights = np.random.rand(config["n_sectors"], int(weights_two.shape[0] / 2))
     column_sum = sector_weights.sum(axis=0, keepdims=True)
     sector_weights = sector_weights / column_sum
     sector_weights = np.hstack(
-        (sector_weights, np.zeros((config["n_sectors"], weights_two.shape[0])))
+        (sector_weights, np.zeros((config["n_sectors"], weights_two.shape[0] // 2)))
     )
     return sector_weights
 
 
 def sector_constraint(sector_weights, config, x):
     sector_neutrality = [
-        sector_weights @ x[: int(sector_weights.shape[0])]
+        sector_weights @ x[: int(sector_weights.shape[1])]
         >= -config["sector_abs_weight"],
-        sector_weights @ x[: int(sector_weights.shape[0])]
+        sector_weights @ x[: int(sector_weights.shape[1])]
         <= config["sector_abs_weight"],
     ]
     return sector_neutrality
@@ -149,8 +148,8 @@ def sector_constraint(sector_weights, config, x):
 
 def net_exposure_constraint(all_pos_padded, config, x):
     long_sum = [
-        all_pos_padded @ x[: int(all_pos_padded.shape[0])] <= config["eps"],
-        all_pos_padded @ x[: int(all_pos_padded.shape[0])] >= -config["eps"],
+        all_pos_padded @ x[: int(all_pos_padded.shape[0])] <= 1.0 + config["eps"],
+        all_pos_padded @ x[: int(all_pos_padded.shape[0])] >= 1.0 - config["eps"],
     ]
     return long_sum
 
@@ -177,16 +176,16 @@ def force_zero_constraint(force_zero_padded, config, x):
 
 def dollar_neutral_constraint(ones_zeros, config, x):
     dollar_neutrality = [
-        ones_zeros @ x[: ones_zeros.shape[0]] <= config["eps"],
-        ones_zeros @ x[: ones_zeros.shape[0]] >= -config["eps"],
+        ones_zeros @ x[: ones_zeros.shape[1]] <= config["eps"],
+        ones_zeros @ x[: ones_zeros.shape[1]] >= -config["eps"],
     ]
     return dollar_neutrality
 
 
 def individual_constraint(diagonal_zeros, config, lb_stocks, ub_stocks, x):
     individual_weight = [
-        diagonal_zeros @ x[: diagonal_zeros.shape[0]] >= lb_stocks,
-        diagonal_zeros @ x[: diagonal_zeros.shape[0]] <= ub_stocks,
+        diagonal_zeros @ x[: diagonal_zeros.shape[1]] >= lb_stocks,
+        diagonal_zeros @ x[: diagonal_zeros.shape[1]] <= ub_stocks,
     ]
     return individual_weight
 
@@ -195,29 +194,29 @@ def total_turnover_component_constraint(
     double_diagonal, diagonal_negdiagonal, config, weights_one, x
 ):
     total_turnover_geq = [
-        double_diagonal @ x[: double_diagonal.shape[0]]
-        >= weights_one[: double_diagonal.shape[1]],
-        double_diagonal @ x[: double_diagonal.shape[0]] <= math.inf,
+        double_diagonal @ x[: double_diagonal.shape[1]]
+        >= weights_one[: double_diagonal.shape[0]],
+        double_diagonal @ x[: double_diagonal.shape[1]] <= math.inf,
     ]
 
     total_turnover_leq = [
-        diagonal_negdiagonal @ x[: double_diagonal.shape[0]] >= -math.inf,
-        diagonal_negdiagonal @ x[: double_diagonal.shape[0]]
-        <= weights_one[: double_diagonal.shape[1]],
+        diagonal_negdiagonal @ x[: double_diagonal.shape[1]] >= -math.inf,
+        diagonal_negdiagonal @ x[: double_diagonal.shape[1]]
+        <= weights_one[: double_diagonal.shape[0]],
     ]
     return total_turnover_geq + total_turnover_leq
 
 
 def v_constraint(zeros_ones, zeros_diagonal, config, x):
     sum_v = [
-        zeros_ones @ x[: zeros_ones.shape[0]] >= 0.0,
-        zeros_ones @ x[: zeros_ones.shape[0]]
+        zeros_ones @ x[: zeros_ones.shape[1]] >= 0.0,
+        zeros_ones @ x[: zeros_ones.shape[1]]
         <= config["total_turnover"] + x[config["alpha_index"]],
     ]
 
     positive_v = [
-        zeros_diagonal @ x[: zeros_diagonal.shape[0]] >= 0.0,
-        zeros_diagonal @ x[: zeros_diagonal.shape[0]] <= math.inf,
+        zeros_diagonal @ x[: zeros_diagonal.shape[1]] >= 0.0,
+        zeros_diagonal @ x[: zeros_diagonal.shape[1]] <= math.inf,
     ]
     return sum_v, positive_v
 
@@ -228,22 +227,31 @@ def alpha_constraint(config, x):
     return alpha_gate
 
 
-def objective_a(x, weights_two, n_stocks):
-    diff = x[:n_stocks] - weights_two[:n_stocks]
+def objective_a(x, weights_two):
+    diff = (
+        x[: int(weights_two.shape[0] / 2)]
+        - weights_two[: int(weights_two.shape[0] / 2)]
+    )
     return cp.sum_squares(diff)
 
 
-def objective_b(x, weights_two, n_stocks, config):
-    diff = x[: weights_two.shape[0]] - weights_two[: weights_two.shape[0]]
+def objective_b(x, weights_two, config):
+    diff = (
+        x[: int(weights_two.shape[0] / 2)]
+        - weights_two[: int(weights_two.shape[0] / 2)]
+    )
     return cp.sum_squares(diff) + config["alpha"] * (x[-config["alpha_index"]]) ** 2
 
 
-def objective_c(x, weights_two, n_stocks, config):
-    diff = x[: weights_two.shape[0]] - weights_two[: weights_two.shape[0]]
+def objective_c(x, weights_two, config):
+    diff = (
+        x[: int(weights_two.shape[0] / 2)]
+        - weights_two[: int(weights_two.shape[0] / 2)]
+    )
     return (
         cp.sum_squares(diff)
-        + config["alpha"] * (x[-config["alpha_index"]]) ** 2
-        + config["beta"] * (x[-config["beta_index"]]) ** 2
+        + config["alpha"] * (x[config["alpha_index"]]) ** 2
+        + config["beta"] * (x[config["beta_index"]]) ** 2
     )
 
 
@@ -258,9 +266,9 @@ def print_details(
         print(f"long sum: {np.maximum(optimize_weights, 0).sum()}")
 
         pos1 = (optimize_weights[:n_stocks] >= 0).sum()
-        print(f"force positive: {pos1 == all_pos[n_stocks].sum()}")
+        print(f"force positive: {pos1 == all_pos[:n_stocks].sum()}")
         neg1 = (optimize_weights[:n_stocks] <= 0).sum()
-        print(f"force negative: {neg1 == all_neg[n_stocks].sum()}")
+        print(f"force negative: {neg1 == all_neg[:n_stocks].sum()}")
         print(
             f"sector weights: {sector_w @ result_x[: 2 * n_stocks] <= config['sector_abs_weight']}"
         )
@@ -268,11 +276,11 @@ def print_details(
             f"positive v: {(result_x[n_stocks : -config['number_gates']] >= 0).sum() == n_stocks}"
         )
         print(
-            f"over cap?: {result_x[n_stocks : -config['number_gates']].sum() > config['total_turnover'] + config['eps']}"
+            f"over total turnover cap?: {result_x[n_stocks : -config['number_gates']].sum() > config['total_turnover'] + config['eps']}"
         )
-        print(
-            f"turnover: {result_x[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
-        )
+        # print(
+        #     f"turnover: {result_x[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
+        # )
     else:
         print("optimization failed")
 
@@ -288,14 +296,18 @@ def print_details(
     print(f"alpha: {config['alpha']}")
     print(f"beta: {config['beta']}")
     print("----------------- POST RUN STATISTICS: --------------")
-    print(f"no buffer objective: {((optimize_weights - weights_two) ** 2).sum()}")
-    correlation = stats.pearsonr(optimize_weights, weights_two)
+    print(
+        f"no buffer objective: {((optimize_weights - weights_two[:n_stocks]) ** 2).sum()}"
+    )
+    correlation = stats.pearsonr(optimize_weights, weights_two[:n_stocks])
     print(f"correlation: {correlation.statistic}")
 
 
 def run_optimize():
     config = get_config()
     weights_one, weights_two, x = generate_weights(config)
+    config["alpha_index"] = weights_one.shape[0]
+    config["beta_index"] = weights_one.shape[0] + 1
 
     n_stocks = int(weights_one.shape[0] / 2)
     zeros = np.zeros((n_stocks))
@@ -314,7 +326,11 @@ def run_optimize():
     negdiagonal_diagonal = sp.hstack((-diagonal_a, diagonal_a), format="csr")
 
     lb_stocks, ub_stocks, all_pos_padded, all_neg_padded, force_zero_padded = (
-        generate_bounds_masks(config, weights_one, weights_two)
+        generate_bounds_masks(
+            weights_one,
+            weights_two,
+            config,
+        )
     )
 
     # Constraints
@@ -324,7 +340,7 @@ def run_optimize():
     force_sign = force_sign_constraint(all_pos_padded, all_neg_padded, config, x)
     dollar_neutral = dollar_neutral_constraint(ones_zeros, config, x)
     individual_weight = individual_constraint(
-        diagonal_a, config, lb_stocks, ub_stocks, x
+        diagonal_zeros, config, lb_stocks, ub_stocks, x
     )
     total_turnover = total_turnover_component_constraint(
         double_diagonal, diagonal_negdiagonal, config, weights_one, x
@@ -333,7 +349,7 @@ def run_optimize():
     alpha_cons = alpha_constraint(config, x)
     force_zero = force_zero_constraint(force_zero_padded, config, x)
 
-    if force_zero_padded[: config["n_stocks"]].any():
+    if force_zero_padded[:n_stocks].any():
         constraints = [
             sector_cons,
             long_sum,
@@ -384,13 +400,15 @@ def run_optimize():
     }
 
     problem = cp.Problem(
-        cp.Minimize(objective_b(x, weights_two, n_stocks, config)),
+        cp.Minimize(objective_b(x, weights_two, config)),
         constraints=constraints,
     )
 
+    start_time = time.perf_counter()
     problem.solve(**clarabel_opts)
     # problem.solve(**piqp_opts)
-
+    end_time = time.perf_counter()
+    print(f"Solver time: {end_time - start_time:.4f} seconds")
     if problem.status == "optimal":
         optimize_weights = x.value[:n_stocks]
     else:
