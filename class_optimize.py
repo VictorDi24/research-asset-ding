@@ -87,8 +87,8 @@ class portfolio:
 
         y = cp.Variable(weights_one.shape[0], name="buffers")
         z = cp.Variable(1, name="upper_total_gate")
-        self.current_weights.value = weights_one
-        self.target_weights.value = weights_two
+        self.current_weights = weights_one
+        self.target_weights = weights_two
         return weights_one, weights_two, x, y, z
 
     def generate_bounds_masks(
@@ -259,43 +259,22 @@ class portfolio:
         correlation = stats.pearsonr(optimize_weights, weights_two)
         print(f"correlation: {correlation.statistic}")
 
-    def run_optimize(
+    def generate_constraints(
         self,
-        individual_turnover: float = None,
-        max_weight: float = None,
-        total_turnover: float = None,
-        day: int = None,
-        speed: int = None,
-        alpha: float = None,
-        n_sectors: int = None,
+        weights_one,
+        weights_two,
+        x,
+        y,
+        z,
+        all_pos_padded,
+        all_neg_padded,
+        force_zero_padded,
+        lb_stocks,
+        ub_stocks,
     ):
-
-        if individual_turnover is not None:
-            self.individual_turnover.value = individual_turnover
-        if max_weight is not None:
-            self.max_weight.value = max_weight
-        if total_turnover is not None:
-            self.total_turnover.value = total_turnover
-        if day is not None:
-            self.day.value = day
-        if speed is not None:
-            self.speed.value = speed
-        if alpha is not None:
-            self.alpha.value = alpha
-        if n_sectors is not None:
-            self.n_sectors.value = n_sectors
-
-        weights_one, weights_two, x, y, z = self.generate_weights()
         n_stocks = weights_one.shape[0]
         ones = np.ones(n_stocks)
         diagonal = sp.eye(n_stocks, format="csr")
-
-        lb_stocks, ub_stocks, all_pos_padded, all_neg_padded, force_zero_padded = (
-            self.generate_bounds_masks(
-                weights_one,
-                weights_two,
-            )
-        )
 
         # Constraints
         sector_weights = self.create_sectors(weights_two)
@@ -312,7 +291,6 @@ class portfolio:
         sum_v, positive_v = self.v_constraint(ones, diagonal, y, z)
         alpha_cons = self.alpha_constraint(z)
         force_zero = self.force_zero_constraint(force_zero_padded, x)
-
         if force_zero_padded[:n_stocks].any():
             constraints = [
                 sector_cons,
@@ -340,6 +318,56 @@ class portfolio:
                 alpha_cons,
             ]
             constraints = functools.reduce(operator.add, constraints)
+
+        return constraints, sector_weights
+
+    def run_optimize(
+        self,
+        individual_turnover: float | None = None,
+        max_weight: float | None = None,
+        total_turnover: float | None = None,
+        day: int | None = None,
+        speed: int | None = None,
+        alpha: float | None = None,
+        n_sectors: int | None = None,
+    ):
+
+        if individual_turnover is not None:
+            self.individual_turnover.value = individual_turnover
+        if max_weight is not None:
+            self.max_weight.value = max_weight
+        if total_turnover is not None:
+            self.total_turnover.value = total_turnover
+        if day is not None:
+            self.day.value = day
+        if speed is not None:
+            self.speed.value = speed
+        if alpha is not None:
+            self.alpha.value = alpha
+        if n_sectors is not None:
+            self.n_sectors.value = n_sectors
+
+        weights_one, weights_two, x, y, z = self.generate_weights()
+
+        lb_stocks, ub_stocks, all_pos_padded, all_neg_padded, force_zero_padded = (
+            self.generate_bounds_masks(
+                weights_one,
+                weights_two,
+            )
+        )
+
+        constraints, sector_weights = self.generate_constraints(
+            weights_one,
+            weights_two,
+            x,
+            y,
+            z,
+            all_pos_padded,
+            all_neg_padded,
+            force_zero_padded,
+            lb_stocks,
+            ub_stocks,
+        )
 
         TOL = 1e-10
         MAX_ITER = 100000
