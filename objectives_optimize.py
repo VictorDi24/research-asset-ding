@@ -166,8 +166,8 @@ class portfolio:
 
         return positive_force + negative_force
 
-    def force_zero_constraint(self, force_zero_padded, x):
-        zero_idx = force_zero_padded.astype(bool)
+    def force_zero_constraint(self, force_zero, x):
+        zero_idx = force_zero.astype(bool)
         zeros_case = [
             x[zero_idx] <= self.eps,
             x[zero_idx] >= -self.eps,
@@ -224,9 +224,9 @@ class portfolio:
         x,
         y,
         z,
-        all_pos_padded,
-        all_neg_padded,
-        force_zero_padded,
+        all_pos,
+        all_neg,
+        force_zero,
         lb_stocks,
         ub_stocks,
     ):
@@ -237,8 +237,8 @@ class portfolio:
         # Constraints
         sector_weights = self.create_sectors(weights_two)
         sector_cons = self.sector_constraint(sector_weights, x)
-        long_sum = self.net_exposure_constraint(all_pos_padded, x)
-        force_sign = self.force_sign_constraint(all_pos_padded, all_neg_padded, x)
+        long_sum = self.net_exposure_constraint(all_pos, x)
+        force_sign = self.force_sign_constraint(all_pos, all_neg, x)
         dollar_neutral = self.dollar_neutral_constraint(ones, x)
         individual_weight = self.individual_constraint(
             diagonal, lb_stocks, ub_stocks, x
@@ -248,8 +248,8 @@ class portfolio:
         )
         sum_v, positive_v = self.v_constraint(ones, diagonal, y, z)
         alpha_cons = self.alpha_constraint(z)
-        force_zero = self.force_zero_constraint(force_zero_padded, x)
-        if force_zero_padded[:n_stocks].any():
+        force_zero_condition = self.force_zero_constraint(force_zero, x)
+        if force_zero[:n_stocks].any():
             constraints = [
                 sector_cons,
                 long_sum,
@@ -260,7 +260,7 @@ class portfolio:
                 sum_v,
                 positive_v,
                 alpha_cons,
-                force_zero,
+                force_zero_condition,
             ]
             constraints = functools.reduce(operator.add, constraints)
         else:
@@ -396,12 +396,6 @@ class elastic_net(portfolio):
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
 
-    def generate_bounds_masks(self, weights_one, weights_two):
-        lb_stocks, ub_stocks, all_pos, all_neg, force_zero = (
-            super().generate_bounds_masks(weights_one, weights_two)
-        )
-        return lb_stocks, ub_stocks, all_pos, all_neg, force_zero
-
     def objective(self, x, y, z, weights_one, weights_two):
         l1_gate_constraint = self.lambda_a.value * cp.norm(x - weights_one, 1)
         l2_gate_constraint = self.lambda_b.value * cp.sum_squares(x - weights_one)
@@ -419,6 +413,7 @@ class elastic_net(portfolio):
     ):
 
         optimize_weights, buffers, gate_a = super().run_optimize()
+        print(f"Method: {__name__}")
         return optimize_weights, buffers, gate_a
 
 
