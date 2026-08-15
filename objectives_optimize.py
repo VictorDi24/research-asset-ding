@@ -326,9 +326,7 @@ class portfolio:
                 f"sector weights: {sector_w @ optimize_weights.value <= self.sector_abs_weight.value}"
             )
             print(f"positive v: {(buffers.value >= -self.eps.value).sum() == n_stocks}")
-            print(
-                f"over total turnover cap?: {abs(buffers.value).sum() > self.total_turnover.value}"
-            )
+            print(f"slack total turnover cap?: {abs(buffers.value).sum()}")
         # print(
         #     f"turnover: {optimize_weights[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
         # )
@@ -394,16 +392,11 @@ class portfolio:
 
 
 class elastic_net(portfolio):
-    def __init__(
-        self,
-        lambda_a: float = 1.0,
-        lambda_b: float = 1.0,
-    ):
+    def __init__(self, lambda_a: float = 1.0, lambda_b: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        print("initialized elastic_net")
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
-
-        super().__init__()
-        print("initialized elastic_net")
 
     def elastic_generate_weights(self):
         weights_one, weights_two, x, y, z = super().generate_weights()
@@ -507,18 +500,18 @@ class elastic_net(portfolio):
             lb_stocks,
             ub_stocks,
         )
-        clarabel_opts, piqp_opts = super().generate_opt()
+        clarabel_opts, piqp_opts = self.generate_opt()
         problem = cp.Problem(
             cp.Minimize(self.objective_elastic_net(x, y, z, weights_one, weights_two)),
             constraints,
         )
 
-        start_time = time.perf_counter()
-        # problem.solve(**clarabel_opts)
-        # problem.solve(**piqp_opts)
-        end_time = time.perf_counter()
+        # start_time = time.perf_counter()
+        # # problem.solve(**clarabel_opts)
+        # # problem.solve(**piqp_opts)
+        # end_time = time.perf_counter()
 
-        optimize_weights, buffers, gate_a = super().run_optimize(
+        optimize_weights, buffers, gate_a = self.run_optimize(
             weights_one,
             weights_two,
             x,
