@@ -2,13 +2,10 @@ import functools
 import math
 import operator
 import time
-import typing
-from socket import L2CAP_LM
 
 import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
-from cvxpy.atoms.affine.wraps import nonneg_wrap
 from scipy import stats
 
 
@@ -216,7 +213,7 @@ class portfolio:
         diff = x - weights_two
         return cp.sum_squares(diff)
 
-    def objective_b(self, x, y, z, weights_two):
+    def objective(self, x, y, z, weights_one, weights_two):
         diff = x - weights_two
         return cp.sum_squares(diff) + self.alpha.value * (z[0]) ** 2
 
@@ -298,16 +295,7 @@ class portfolio:
             "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
         }
 
-        # PIQP Configuration
-        piqp_opts = {
-            "solver": cp.PIQP,
-            "eps_abs": TOL,  # Absolute tolerance (Primal, Dual, and Gap)
-            "eps_rel": 0.0,  # Set relative to 0.0 or 1e-9 to enforce absolute alignment
-            "max_iter": MAX_ITER,
-            "verbose": False,
-        }
-
-        return clarabel_opts, piqp_opts
+        return clarabel_opts
 
     def print_details(
         self, optimize_weights, buffers, weights_two, all_pos, all_neg, sector_w
@@ -350,20 +338,30 @@ class portfolio:
         correlation = stats.pearsonr(optimize_weights.value, weights_two)
         print(f"correlation: {correlation.statistic}")
 
-    @timer
     def run_optimize(
         self,
-        weights_one,
-        weights_two,
-        x,
-        y,
-        z,
-        all_pos_padded,
-        all_neg_padded,
-        sector_weights,
-        problem,
-        opts,
     ):
+        weights_one, weights_two, x, y, z = self.generate_weights()
+        lb_stocks, ub_stocks, all_pos, all_neg, force_zero = self.generate_bounds_masks(
+            weights_one, weights_two
+        )
+        constraints, sector_weights = self.generate_constraints(
+            weights_one,
+            weights_two,
+            x,
+            y,
+            z,
+            all_pos,
+            all_neg,
+            force_zero,
+            lb_stocks,
+            ub_stocks,
+        )
+        opts = self.generate_opt()
+        problem = cp.Problem(
+            cp.Minimize(self.objective(x, y, z, weights_one, weights_two)),
+            constraints,
+        )
 
         start_time = time.perf_counter()
         problem.solve(**opts)
@@ -384,8 +382,8 @@ class portfolio:
             optimize_weights,
             buffers,
             weights_two,
-            all_pos_padded,
-            all_neg_padded,
+            all_pos,
+            all_neg,
             sector_weights,
         )
         return optimize_weights, buffers, gate_a
@@ -398,131 +396,29 @@ class elastic_net(portfolio):
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
 
-    def elastic_generate_weights(self):
-        weights_one, weights_two, x, y, z = super().generate_weights()
-        return weights_one, weights_two, x, y, z
-
-    def elastic_generate_bounds_masks(self, weights_one, weights_two):
+    def generate_bounds_masks(self, weights_one, weights_two):
         lb_stocks, ub_stocks, all_pos, all_neg, force_zero = (
             super().generate_bounds_masks(weights_one, weights_two)
         )
         return lb_stocks, ub_stocks, all_pos, all_neg, force_zero
 
-    def elastic_generate_constraints(
-        self,
-        weights_one,
-        weights_two,
-        x,
-        y,
-        z,
-        all_pos_padded,
-        all_neg_padded,
-        force_zero_padded,
-        lb_stocks,
-        ub_stocks,
-    ):
-
-        constraints, sector_weights = super().generate_constraints(
-            weights_one,
-            weights_two,
-            x,
-            y,
-            z,
-            all_pos_padded,
-            all_neg_padded,
-            force_zero_padded,
-            lb_stocks,
-            ub_stocks,
-        )
-
-        # net = [cp.norm(x - weights_one, 1) <= self.total_turnover]
-        # constraints = [constraints, net]
-        # constraints = functools.reduce(operator.add, constraints)
-
-        return constraints, sector_weights
-
-    def objective_elastic_net(self, x, y, z, weights_one, weights_two):
+    def objective(self, x, y, z, weights_one, weights_two):
         l1_gate_constraint = self.lambda_a.value * cp.norm(x - weights_one, 1)
         l2_gate_constraint = self.lambda_b.value * cp.sum_squares(x - weights_one)
 
         objective = (
-            super().objective_b(x, y, z, weights_two)
+            super().objective(x, y, z, weights_one, weights_two)
             + l1_gate_constraint
             + l2_gate_constraint
         )
         return objective
-        # return super().objective_b(x, y, z, weights_two)
+        # return super().objective(x, y, z, weights_two)
 
-    def run_elastic_optimize(
+    def run_optimize(
         self,
-        individual_turnover: float | None = None,
-        max_weight: float | None = None,
-        total_turnover: float | None = None,
-        day: int | None = None,
-        speed: int | None = None,
-        alpha: float | None = None,
-        n_sectors: int | None = None,
-        lambda_a: float | None = None,
-        lambda_b: float | None = None,
     ):
-        if lambda_a is not None:
-            self.lambda_a.value = lambda_a
-        if lambda_b is not None:
-            self.lambda_b.value = lambda_b
-        if individual_turnover is not None:
-            self.individual_turnover.value = individual_turnover
-        if max_weight is not None:
-            self.max_weight.value = max_weight
-        if total_turnover is not None:
-            self.total_turnover.value = total_turnover
-        if day is not None:
-            self.day.value = day
-        if speed is not None:
-            self.speed.value = speed
-        if alpha is not None:
-            self.alpha.value = alpha
-        if n_sectors is not None:
-            self.n_sectors.value = n_sectors
 
-        weights_one, weights_two, x, y, z = self.elastic_generate_weights()
-        lb_stocks, ub_stocks, all_pos, all_neg, force_zero = (
-            self.elastic_generate_bounds_masks(weights_one, weights_two)
-        )
-        constraints, sector_weights = self.elastic_generate_constraints(
-            weights_one,
-            weights_two,
-            x,
-            y,
-            z,
-            all_pos,
-            all_neg,
-            force_zero,
-            lb_stocks,
-            ub_stocks,
-        )
-        clarabel_opts, piqp_opts = self.generate_opt()
-        problem = cp.Problem(
-            cp.Minimize(self.objective_elastic_net(x, y, z, weights_one, weights_two)),
-            constraints,
-        )
-
-        # start_time = time.perf_counter()
-        # # problem.solve(**clarabel_opts)
-        # # problem.solve(**piqp_opts)
-        # end_time = time.perf_counter()
-
-        optimize_weights, buffers, gate_a = self.run_optimize(
-            weights_one,
-            weights_two,
-            x,
-            y,
-            z,
-            all_pos,
-            all_neg,
-            sector_weights,
-            problem,
-            clarabel_opts,
-        )
+        optimize_weights, buffers, gate_a = super().run_optimize()
         return optimize_weights, buffers, gate_a
 
 
