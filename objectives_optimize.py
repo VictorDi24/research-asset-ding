@@ -24,9 +24,9 @@ def timer(func):
 class portfolio:
     def __init__(
         self,
-        individual_turnover: float = 0.005,
+        individual_turnover: float = 0.008,
         max_weight: float = 0.008,
-        total_turnover: float = 0.6,
+        total_turnover: float = 0.8,
         day: int = 0,
         speed: int = 0,
         alpha: float = 1,
@@ -37,8 +37,6 @@ class portfolio:
     ) -> None:
 
         # Parameters subject to change
-        self.current_weights = cp.Parameter()
-        self.target_weights = cp.Parameter()
         self.individual_turnover = cp.Parameter(nonneg=True, value=individual_turnover)
         self.max_weight = cp.Parameter(nonneg=True, value=max_weight)
         self.total_turnover = cp.Parameter(value=total_turnover)
@@ -84,11 +82,11 @@ class portfolio:
             name="weights",
         )
 
-        y = cp.Variable(weights_one.shape[0], name="buffers")
+        # y = cp.Variable(weights_one.shape[0], name="buffers")
         z = cp.Variable(1, name="upper_total_gate")
-        self.current_weights = weights_one
-        self.target_weights = weights_two
-        return weights_one, weights_two, x, y, z
+        self.current_weights = cp.Parameter(weights_one.shape[0], value=weights_one)
+        self.target_weights = cp.Parameter(weights_two.shape[0], value=weights_two)
+        return weights_one, weights_two, x, z
 
     def generate_bounds_masks(
         self,
@@ -133,14 +131,18 @@ class portfolio:
         force_zero = weights_two == 0
         lb_stocks[force_zero] = np.minimum(lb_stocks[force_zero], 0.0)
         ub_stocks[force_zero] = np.maximum(ub_stocks[force_zero], 0.0)
-
-        return lb_stocks, ub_stocks, all_pos, all_neg, force_zero
+        self.force_zero = cp.Parameter(force_zero.shape, value=force_zero)
+        self.all_neg = cp.Parameter(all_neg.shape, value=all_neg)
+        self.all_pos = cp.Parameter(all_pos.shape, value=all_pos)
+        return lb_stocks, ub_stocks, self.all_pos, self.all_neg, self.force_zero
 
     def create_sectors(self, weights_two):
         sector_weights = np.random.rand(self.n_sectors.value, weights_two.shape[0])
         column_sum = sector_weights.sum(axis=0, keepdims=True)
         sector_weights = sector_weights / column_sum
-
+        self.sector_weights_matrix = cp.Parameter(
+            sector_weights.shape, value=sector_weights
+        )
         return sector_weights
 
     def sector_constraint(self, sector_weights, x):
@@ -152,22 +154,22 @@ class portfolio:
 
     def net_exposure_constraint(self, all_pos, x):
         long_sum = [
-            all_pos @ x <= 1.0 + self.eps,
-            all_pos @ x >= 1.0 - self.eps,
+            all_pos.value @ x <= 1.0 + self.eps,
+            all_pos.value @ x >= 1.0 - self.eps,
         ]
         return long_sum
 
     def force_sign_constraint(self, all_pos, all_neg, x):
-        n_stocks = all_pos.shape[0]
-        pos_idx = all_pos.astype(bool)
+        n_stocks = all_pos.value.shape[0]
+        pos_idx = all_pos.value.astype(bool)
         positive_force = [x[pos_idx] >= -self.eps]
-        neg_idx = all_neg.astype(bool)
+        neg_idx = all_neg.value.astype(bool)
         negative_force = [x[neg_idx] <= self.eps]
 
         return positive_force + negative_force
 
     def force_zero_constraint(self, force_zero, x):
-        zero_idx = force_zero.astype(bool)
+        zero_idx = force_zero.value.astype(bool)
         zeros_case = [
             x[zero_idx] <= self.eps,
             x[zero_idx] >= -self.eps,
@@ -183,27 +185,33 @@ class portfolio:
 
     def individual_constraint(self, diagonal, lb_stocks, ub_stocks, x):
         individual_weight = [
-            diagonal @ x >= lb_stocks,
-            diagonal @ x <= ub_stocks,
+            x >= lb_stocks,
+            x <= ub_stocks,
         ]
         return individual_weight
 
-    def total_turnover_component_constraint(self, diagonal, weights_one, x, y):
-        total_turnover_geq = [
-            diagonal @ x + diagonal @ y >= weights_one,
-        ]
+    # def total_turnover_component_constraint(self, diagonal, weights_one, x, y):
+    #     total_turnover_geq = [
+    #         diagonal @ x + diagonal @ y >= weights_one,
+    #     ]
 
-        total_turnover_leq = [
-            diagonal @ x - diagonal @ y <= weights_one,
-        ]
-        return total_turnover_geq + total_turnover_leq
+    #     total_turnover_leq = [
+    #         diagonal @ x - diagonal @ y <= weights_one,
+    #     ]
+    #     return total_turnover_geq + total_turnover_leq
 
-    def v_constraint(self, ones, diagonal, y, z):
-        sum_v = [ones @ y >= 0.0, ones @ y <= self.total_turnover + z[0]]
-        positive_v = [
-            diagonal @ y >= 0.0,
+    # def v_constraint(self, ones, diagonal, y, z):
+    #     sum_v = [ones @ y >= 0.0, ones @ y <= self.total_turnover + z[0]]
+    #     positive_v = [
+    #         diagonal @ y >= 0.0,
+    #     ]
+    #     return sum_v, positive_v
+
+    def total_turnover_direct_constraint(self, x, z, weights_one):
+        total_turnover_constraint = [
+            cp.sum(cp.abs(x - weights_one)) <= self.total_turnover + z[0]
         ]
-        return sum_v, positive_v
+        return total_turnover_constraint
 
     def alpha_constraint(self, z):
         alpha_gate = [z[0] >= -self.eps]
@@ -213,16 +221,15 @@ class portfolio:
         diff = x - weights_two
         return cp.sum_squares(diff)
 
-    def objective(self, x, y, z, weights_one, weights_two):
+    def objective(self, x, z, weights_one, weights_two):
         diff = x - weights_two
-        return cp.sum_squares(diff) + self.alpha.value * (z[0]) ** 2
+        return cp.sum_squares(diff) + self.alpha * (z[0]) ** 2
 
     def generate_constraints(
         self,
         weights_one,
         weights_two,
         x,
-        y,
         z,
         all_pos,
         all_neg,
@@ -243,22 +250,24 @@ class portfolio:
         individual_weight = self.individual_constraint(
             diagonal, lb_stocks, ub_stocks, x
         )
-        total_turnover = self.total_turnover_component_constraint(
-            diagonal, weights_one, x, y
-        )
-        sum_v, positive_v = self.v_constraint(ones, diagonal, y, z)
+        # total_turnover = self.total_turnover_component_constraint(
+        #     diagonal, weights_one, x, y
+        # )
+        # sum_v, positive_v = self.v_constraint(ones, diagonal, y, z)
+        total_turnover_cons = self.total_turnover_direct_constraint(x, z, weights_one)
         alpha_cons = self.alpha_constraint(z)
         force_zero_condition = self.force_zero_constraint(force_zero, x)
-        if force_zero[:n_stocks].any():
+        if force_zero.value[:n_stocks].any():
             constraints = [
                 sector_cons,
                 long_sum,
                 force_sign,
                 dollar_neutral,
                 individual_weight,
-                total_turnover,
-                sum_v,
-                positive_v,
+                # total_turnover,
+                # sum_v,
+                # positive_v,
+                total_turnover_cons,
                 alpha_cons,
                 force_zero_condition,
             ]
@@ -270,9 +279,10 @@ class portfolio:
                 force_sign,
                 dollar_neutral,
                 individual_weight,
-                total_turnover,
-                sum_v,
-                positive_v,
+                # total_turnover,
+                # sum_v,
+                # positive_v,
+                total_turnover_cons,
                 alpha_cons,
             ]
             constraints = functools.reduce(operator.add, constraints)
@@ -297,24 +307,26 @@ class portfolio:
 
         return clarabel_opts
 
-    def print_details(
-        self, optimize_weights, buffers, weights_two, all_pos, all_neg, sector_w
-    ):
+    def print_details(self, optimize_weights, weights_two, all_pos, all_neg, sector_w):
         n_stocks = optimize_weights.shape[0]
         print("---------------- VERIFICATION: --------------")
-        if optimize_weights is not None and buffers is not None:
+        if optimize_weights is not None:
             print(f"net exposure: {optimize_weights.value.sum()}")
             print(f"short sum: {np.minimum(optimize_weights.value, 0).sum()}")
             print(f"long sum: {np.maximum(optimize_weights.value, 0).sum()}")
-            pos1 = (optimize_weights.value >= 0).sum()
-            print(f"force positive: {pos1 == all_pos.sum()}")
-            neg1 = (optimize_weights.value <= 0).sum()
-            print(f"force negative: {neg1 == all_neg.sum()}")
+            pos1 = (optimize_weights.value > 0.0).sum()
+            print(f"force positive: {pos1 == all_pos.value.sum()}")
+            neg1 = (optimize_weights.value < 0.0).sum()
+            print(f"force negative: {neg1 == all_neg.value.sum()}")
             print(
-                f"sector weights: {sector_w @ optimize_weights.value <= self.sector_abs_weight.value}"
+                f"sector weights: {sector_w @ optimize_weights.value <= self.sector_abs_weight.value + self.eps.value}"
             )
-            print(f"positive v: {(buffers.value >= -self.eps.value).sum() == n_stocks}")
-            print(f"slack total turnover cap?: {abs(buffers.value).sum()}")
+            # print(
+            #     f"positive v: {(optimize_weights.value >= -self.eps.value).sum() == n_stocks}"
+            # )
+            print(
+                f"total turnover: {abs(self.current_weights.value - optimize_weights.value).sum()}"
+            )
         # print(
         #     f"turnover: {optimize_weights[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
         # )
@@ -341,7 +353,7 @@ class portfolio:
     def run_optimize(
         self,
     ):
-        weights_one, weights_two, x, y, z = self.generate_weights()
+        weights_one, weights_two, x, z = self.generate_weights()
         lb_stocks, ub_stocks, all_pos, all_neg, force_zero = self.generate_bounds_masks(
             weights_one, weights_two
         )
@@ -349,7 +361,6 @@ class portfolio:
             weights_one,
             weights_two,
             x,
-            y,
             z,
             all_pos,
             all_neg,
@@ -359,7 +370,7 @@ class portfolio:
         )
         opts = self.generate_opt()
         problem = cp.Problem(
-            cp.Minimize(self.objective(x, y, z, weights_one, weights_two)),
+            cp.Minimize(self.objective(x, z, weights_one, weights_two)),
             constraints,
         )
 
@@ -369,53 +380,66 @@ class portfolio:
         print(f"Solver time: {end_time - start_time:.4f} seconds")
         if problem.status == "optimal":
             optimize_weights = x
-            buffers = y
             gate_a = z
         else:
+            print("optimization failed")
+            breakpoint()
             optimize_weights = None
-            buffers = None
             gate_a = None
 
         print("Status:", problem.status)
         print("Optimal objective value:", problem.value)
         self.print_details(
             optimize_weights,
-            buffers,
             weights_two,
             all_pos,
             all_neg,
             sector_weights,
         )
-        return optimize_weights, buffers, gate_a
+        print(f"Method: {self.__class__.__name__}")
+        return optimize_weights, gate_a
 
 
 class elastic_net(portfolio):
-    def __init__(self, lambda_a: float = 1.0, lambda_b: float = 1.0, **kwargs):
+    def __init__(self, lambda_a: float = 0.005, lambda_b: float = 0.002, **kwargs):
         super().__init__(**kwargs)
         print("initialized elastic_net")
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
 
-    def objective(self, x, y, z, weights_one, weights_two):
-        l1_gate_constraint = self.lambda_a.value * cp.norm(x - weights_one, 1)
-        l2_gate_constraint = self.lambda_b.value * cp.sum_squares(x - weights_one)
+    def objective(self, x, z, weights_one, weights_two):
+        l1_gate_penalty = self.lambda_a * cp.norm(x - weights_one, 1)
+        l2_gate_penalty = self.lambda_b * cp.sum_squares(x - weights_one)
 
         objective = (
-            super().objective(x, y, z, weights_one, weights_two)
-            + l1_gate_constraint
-            + l2_gate_constraint
+            super().objective(x, z, weights_one, weights_two)
+            + l1_gate_penalty
+            + l2_gate_penalty
         )
         return objective
         # return super().objective(x, y, z, weights_two)
 
-    def run_optimize(
-        self,
-    ):
 
-        optimize_weights, buffers, gate_a = super().run_optimize()
-        print(f"Method: {__name__}")
-        return optimize_weights, buffers, gate_a
+class berhu_penalty(portfolio):
+    def __init__(self, threshold: float = 0.000001, scale: float = 0.000001, **kwargs):
+        super().__init__(**kwargs)
+        print("initialized berhu")
+        self.threshold = cp.Parameter(nonneg=True, value=threshold)
+        self.scale = cp.Parameter(nonneg=True, value=scale)
 
+    def berhu_function(self, x: cp.Variable, weights_one):
+        abs_diff = np.abs(x - weights_one)
 
-# elastic = elastic_net(0, 1)
-# x, y, z = elastic.run_elastic_optimize()
+        quadratic = np.square(abs_diff**2 + self.threshold**2) / (2 * self.threshold)
+
+        return np.sum(np.where(abs_diff <= self.threshold, abs_diff, quadratic))
+
+    # def berhu_function(self, x: cp.Variable, weights_one):
+    #     abs_diff = cp.abs(x - weights_one)
+    #     excess = cp.pos(abs_diff - self.threshold)
+    #     berhu_values = abs_diff + cp.square(excess) / (2 * self.threshold)
+    #     return cp.sum(berhu_values)
+    def objective(self, x, z, weights_one, weights_two):
+        return super().objective(
+            x, z, weights_one, weights_two
+        ) + self.scale * self.berhu_function(x, weights_one)
