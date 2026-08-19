@@ -1,12 +1,15 @@
 import functools
 import math
 import operator
+import random
 import time
 
 import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
 from scipy import stats
+
+random.seed(21)
 
 
 def timer(func):
@@ -324,9 +327,6 @@ class portfolio:
             # print(
             #     f"positive v: {(optimize_weights.value >= -self.eps.value).sum() == n_stocks}"
             # )
-            print(
-                f"total turnover: {abs(self.current_weights.value - optimize_weights.value).sum()}"
-            )
         # print(
         #     f"turnover: {optimize_weights[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
         # )
@@ -345,8 +345,16 @@ class portfolio:
         # print(f"beta: {config['beta']}")
         print("----------------- POST RUN STATISTICS: --------------")
         print(
+            f"total turnover: {abs(self.current_weights.value - optimize_weights.value).sum()}"
+        )
+        print(
             f"no buffer objective: {((optimize_weights.value - weights_two) ** 2).sum()}"
         )
+        print(
+            f"below eps turnover #: {(abs(self.current_weights.value - optimize_weights.value) <= self.eps.value).sum()}"
+        )
+
+        print(f"Method: {self.__class__.__name__}")
         correlation = stats.pearsonr(optimize_weights.value, weights_two)
         print(f"correlation: {correlation.statistic}")
 
@@ -381,22 +389,19 @@ class portfolio:
         if problem.status == "optimal":
             optimize_weights = x
             gate_a = z
+            print("Status:", problem.status)
+            print("Optimal objective value:", problem.value)
+            self.print_details(
+                optimize_weights,
+                weights_two,
+                all_pos,
+                all_neg,
+                sector_weights,
+            )
         else:
-            print("optimization failed")
-            breakpoint()
-            optimize_weights = None
-            gate_a = None
+            print("optimization failed.")
+            return None, None
 
-        print("Status:", problem.status)
-        print("Optimal objective value:", problem.value)
-        self.print_details(
-            optimize_weights,
-            weights_two,
-            all_pos,
-            all_neg,
-            sector_weights,
-        )
-        print(f"Method: {self.__class__.__name__}")
         return optimize_weights, gate_a
 
 
@@ -421,25 +426,185 @@ class elastic_net(portfolio):
 
 
 class berhu_penalty(portfolio):
-    def __init__(self, threshold: float = 0.000001, scale: float = 0.000001, **kwargs):
+    def __init__(self, threshold: float = 1e-6, scale: float = 1e-6, **kwargs):
         super().__init__(**kwargs)
         print("initialized berhu")
         self.threshold = cp.Parameter(nonneg=True, value=threshold)
         self.scale = cp.Parameter(nonneg=True, value=scale)
 
-    def berhu_function(self, x: cp.Variable, weights_one):
-        abs_diff = np.abs(x - weights_one)
+    def generate_weights(self):
+        weights_one, weights_two, x, z = super().generate_weights()
 
-        quadratic = np.square(abs_diff**2 + self.threshold**2) / (2 * self.threshold)
+        s = cp.Variable(
+            weights_one.shape[0],
+            name="capped",
+        )
+        t = cp.Variable(
+            weights_one.shape[0],
+            name="cushion",
+        )
+        return weights_one, weights_two, x, z, s, t
 
-        return np.sum(np.where(abs_diff <= self.threshold, abs_diff, quadratic))
+    def generate_constraints(
+        self,
+        weights_one,
+        weights_two,
+        x,
+        z,
+        s,
+        t,
+        all_pos,
+        all_neg,
+        force_zero,
+        lb_stocks,
+        ub_stocks,
+    ):
+        constraints, sector_weights = super().generate_constraints(
+            weights_one,
+            weights_two,
+            x,
+            z,
+            all_pos,
+            all_neg,
+            force_zero,
+            lb_stocks,
+            ub_stocks,
+        )
+        bound_s = [0 <= s, s <= self.threshold]
+        bound_t = [0 <= t]
+        s_t_turnover = [s + t >= cp.abs(x - weights_one)]
+        constraints.extend(bound_s)
+        constraints.extend(bound_t)
+        constraints.extend(s_t_turnover)
+        return constraints, sector_weights
+
+    def berhu_function(self, s: cp.Variable, t: cp.Variable) -> cp.Expression:
+        denominater = 1 / (2 * self.threshold)
+        return self.scale * cp.sum(s + t + t**2 * denominater)
+
+    def objective(
+        self,
+        x,
+        z,
+        s,
+        t,
+        weights_one,
+        weights_two,
+    ):
+        original_obj = super().objective(x, z, weights_one, weights_two)
+        return original_obj + self.berhu_function(s, t)
+
+    def print_details(self, optimize_weights, weights_two, all_pos, all_neg, sector_w):
+        n_stocks = optimize_weights.shape[0]
+        print("---------------- VERIFICATION: --------------")
+        if optimize_weights is not None:
+            print(f"net exposure: {optimize_weights.value.sum()}")
+            print(f"short sum: {np.minimum(optimize_weights.value, 0).sum()}")
+            print(f"long sum: {np.maximum(optimize_weights.value, 0).sum()}")
+            pos1 = (optimize_weights.value > 0.0).sum()
+            print(f"force positive: {pos1 == all_pos.value.sum()}")
+            neg1 = (optimize_weights.value < 0.0).sum()
+            print(f"force negative: {neg1 == all_neg.value.sum()}")
+            print(
+                f"sector weights: {sector_w @ optimize_weights.value <= self.sector_abs_weight.value + self.eps.value}"
+            )
+            # print(
+            #     f"positive v: {(optimize_weights.value >= -self.eps.value).sum() == n_stocks}"
+            # )
+        # print(
+        #     f"turnover: {optimize_weights[n_stocks : -config['number_gates']].sum() <= config['total_turnover'] + config['eps']}"
+        # )
+        else:
+            print("optimization failed")
+        print("----------------- OPTIMIZATION DETAILS: --------------")
+        print(f"Method: {self.__class__.__name__}")
+        print(f"n_stocks: {n_stocks}")
+        # print(f"abs_starting_weights: {config['abs_starting_weights']}")
+        print(f"n_sectors: {self.n_sectors.value}")
+        print(f"max_weight: {self.max_weight.value}")
+        print(f"total_turnover: {self.total_turnover.value}")
+        print(f"threshold: {self.threshold.value}")
+        print(f"scale: {self.scale.value}")
+        # print(f"target_std: {config['target_std']}")
+        print(f"sector_abs_weight: {self.sector_abs_weight.value}")
+        print(f"eps: {self.eps.value}")
+        print(f"alpha: {self.alpha.value}")
+        # print(f"beta: {config['beta']}")
+        print("----------------- POST RUN STATISTICS: --------------")
+        print(
+            f"total turnover: {abs(self.current_weights.value - optimize_weights.value).sum()}"
+        )
+        print(
+            f"no buffer objective: {((optimize_weights.value - weights_two) ** 2).sum()}"
+        )
+        print(
+            f"below eps turnover #: {(abs(self.current_weights.value - optimize_weights.value) <= self.eps.value).sum()}"
+        )
+
+        correlation = stats.pearsonr(optimize_weights.value, weights_two)
+        print(f"correlation: {correlation.statistic}")
+
+    def run_optimize(self):
+        weights_one, weights_two, x, z, s, t = self.generate_weights()
+        lb_stocks, ub_stocks, self.all_pos, self.all_neg, self.force_zero = (
+            self.generate_bounds_masks(weights_one, weights_two)
+        )
+        constraints, sector_weights = self.generate_constraints(
+            weights_one,
+            weights_two,
+            x,
+            z,
+            s,
+            t,
+            self.all_pos,
+            self.all_neg,
+            self.force_zero,
+            lb_stocks,
+            ub_stocks,
+        )
+        opts = self.generate_opt()
+        problem = cp.Problem(
+            cp.Minimize(self.objective(x, z, s, t, weights_one, weights_two)),
+            constraints,
+        )
+        start_time = time.perf_counter()
+        problem.solve(**opts)
+        end_time = time.perf_counter()
+        print(f"Solver time: {end_time - start_time:.4f} seconds")
+        if problem.status == "optimal":
+            optimize_weights = x
+            gate_a = z
+            print("Status:", problem.status)
+            self.print_details(
+                optimize_weights,
+                weights_two,
+                self.all_pos,
+                self.all_neg,
+                sector_weights,
+            )
+            print(
+                f"berhu penalty: {self.scale.value * np.sum(s.value + t.value + t.value**2 / (2 * self.threshold.value))}"
+            )
+            print("Optimal objective value:", problem.value)
+
+        else:
+            print("optimization failed.")
+            return None, None
+        return optimize_weights, gate_a
+
+    # def berhu_function(self, x: cp.Variable, weights_one):
+    #     abs_diff = np.abs(x - weights_one)
+
+    #     quadratic = np.square(abs_diff**2 + self.threshold**2) / (2 * self.threshold)
+
+    #     return np.sum(np.where(abs_diff <= self.threshold, abs_diff, quadratic))
 
     # def berhu_function(self, x: cp.Variable, weights_one):
     #     abs_diff = cp.abs(x - weights_one)
     #     excess = cp.pos(abs_diff - self.threshold)
     #     berhu_values = abs_diff + cp.square(excess) / (2 * self.threshold)
     #     return cp.sum(berhu_values)
-    def objective(self, x, z, weights_one, weights_two):
-        return super().objective(
-            x, z, weights_one, weights_two
-        ) + self.scale * self.berhu_function(x, weights_one)
+    # def objective(self, x, z, weights_one, weights_two):
+    #     return super().objective(
+    #         x, z, weights_one, weights_two
+    #     ) + self.scale * self.berhu_function(x, weights_one)
