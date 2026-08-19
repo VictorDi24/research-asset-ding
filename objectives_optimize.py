@@ -37,6 +37,7 @@ class portfolio:
         eps: float = 1e-8,
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
+        solver: str = "clarabel",
     ) -> None:
 
         # Parameters subject to change
@@ -50,6 +51,7 @@ class portfolio:
         # No change parameters
         self.eps = cp.Parameter(nonneg=True, value=eps)
         self.sector_abs_weight = cp.Parameter(nonneg=True, value=sector_abs_weight)
+        self.solver = solver
         self.number_gates = cp.Parameter(nonneg=True, value=number_gates)
 
     def generate_weights(
@@ -292,10 +294,8 @@ class portfolio:
 
         return constraints, sector_weights
 
-    def generate_opt(
-        self,
-    ):
-        TOL = 1e-10
+    def generate_opt(self, opt_index):
+        TOL = 1e-8
         MAX_ITER = 100000
 
         # Clarabel Configuration
@@ -308,7 +308,19 @@ class portfolio:
             "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
         }
 
-        return clarabel_opts
+        piqp_opts = {
+            "solver": cp.PIQP,
+            "eps_abs": TOL,  # Primal & Dual feasibility threshold
+            "eps_duality_gap_abs": TOL,  # Absolute duality gap
+            "eps_duality_gap_rel": TOL,  # Relative duality gap
+            "max_iter": MAX_ITER,
+            "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
+        }
+
+        if opt_index == "piqp":
+            return piqp_opts
+        else:
+            return clarabel_opts
 
     def print_details(self, optimize_weights, weights_two, all_pos, all_neg, sector_w):
         n_stocks = optimize_weights.shape[0]
@@ -376,7 +388,7 @@ class portfolio:
             lb_stocks,
             ub_stocks,
         )
-        opts = self.generate_opt()
+        opts = self.generate_opt("clarabel")
         problem = cp.Problem(
             cp.Minimize(self.objective(x, z, weights_one, weights_two)),
             constraints,
@@ -479,8 +491,8 @@ class berhu_penalty(portfolio):
         return constraints, sector_weights
 
     def berhu_function(self, s: cp.Variable, t: cp.Variable) -> cp.Expression:
-        denominater = 1 / (2 * self.threshold)
-        return self.scale * cp.sum(s + t + t**2 * denominater)
+        denominater = 1 / (2 * self.threshold.value)
+        return self.scale * (cp.sum(s + t) + cp.sum_squares(t) * denominater)
 
     def objective(
         self,
@@ -562,7 +574,7 @@ class berhu_penalty(portfolio):
             lb_stocks,
             ub_stocks,
         )
-        opts = self.generate_opt()
+        opts = self.generate_opt(self.solver)
         problem = cp.Problem(
             cp.Minimize(self.objective(x, z, s, t, weights_one, weights_two)),
             constraints,
@@ -586,6 +598,9 @@ class berhu_penalty(portfolio):
                 f"berhu penalty: {self.scale.value * np.sum(s.value + t.value + t.value**2 / (2 * self.threshold.value))}"
             )
             print("Optimal objective value:", problem.value)
+            print(f"Solver: {self.solver}")
+            self.s = s.value
+            self.t = t.value
 
         else:
             print("optimization failed.")
