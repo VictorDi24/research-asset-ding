@@ -134,8 +134,8 @@ class portfolio:
 
         # Gross exposure x matrices
         force_zero = weights_two == 0
-        lb_stocks[force_zero] = np.minimum(lb_stocks[force_zero], 0.0)
-        ub_stocks[force_zero] = np.maximum(ub_stocks[force_zero], 0.0)
+        lb_stocks[force_zero] = -self.eps.value
+        ub_stocks[force_zero] = self.eps.value
         self.force_zero = cp.Parameter(force_zero.shape, value=force_zero)
         self.all_neg = cp.Parameter(all_neg.shape, value=all_neg)
         self.all_pos = cp.Parameter(all_pos.shape, value=all_pos)
@@ -165,11 +165,10 @@ class portfolio:
         return long_sum
 
     def force_sign_constraint(self, all_pos, all_neg, x):
-        n_stocks = all_pos.value.shape[0]
         pos_idx = all_pos.value.astype(bool)
-        positive_force = [x[pos_idx] >= -self.eps]
+        positive_force = [x[pos_idx] >= 0.0]
         neg_idx = all_neg.value.astype(bool)
-        negative_force = [x[neg_idx] <= self.eps]
+        negative_force = [x[neg_idx] <= 0.0]
 
         return positive_force + negative_force
 
@@ -606,6 +605,37 @@ class berhu_penalty(portfolio):
             print("optimization failed.")
             return None, None
         return optimize_weights, gate_a
+
+
+class huber_penalty(portfolio):
+    def __init__(self, threshold: float = 1e-4, scale: float = 100, **kwargs):
+        super().__init__(**kwargs)
+        print("initialized huber_penalty")
+
+        self.threshold = cp.Parameter(nonneg=True, value=threshold)
+        self.scale = cp.Parameter(nonneg=True, value=scale)
+
+    def objective(self, x, z, weights_one, weights_two):
+        turnover_diff = x - weights_two
+        huber_penalty = self.scale * cp.sum(
+            cp.huber(turnover_diff, M=self.threshold.value)
+        )
+
+        return huber_penalty
+
+    def print_details(self, optimize_weights, weights_two, all_pos, all_neg, sector_w):
+        super().print_details(optimize_weights, weights_two, all_pos, all_neg, sector_w)
+
+        if optimize_weights is not None:
+            diff = optimize_weights.value - self.current_weights.value
+            M = self.threshold.value
+
+            abs_diff = np.abs(diff)
+            quad_part = np.where(abs_diff <= M, diff**2, 0)
+            lin_part = np.where(abs_diff > M, 2 * M * abs_diff - M**2, 0)
+            huber_val = self.scale.value * np.sum(quad_part + lin_part)
+
+            print(f"huber penalty: {huber_val:.6f}")
 
     # def berhu_function(self, x: cp.Variable, weights_one):
     #     abs_diff = np.abs(x - weights_one)
