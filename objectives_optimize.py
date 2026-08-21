@@ -637,6 +637,60 @@ class huber_penalty(portfolio):
 
             print(f"huber penalty: {huber_val:.6f}")
 
+
+class huber_berhu(huber_penalty, berhu_penalty):
+    def __init__(
+        self,
+        threshold_huber: float = 1e-4,
+        scale_huber: float = 100,
+        threshold_berhu: float = 1e-6,
+        scale_berhu: float = 1e-6,
+        **kwargs,
+    ):
+        # Initialize the base portfolio class via MRO
+        super().__init__(**kwargs)
+        print("initialized huber_berhu")
+
+        # Huber specific parameters
+        self.threshold_huber = cp.Parameter(nonneg=True, value=threshold_huber)
+        self.scale_huber = cp.Parameter(nonneg=True, value=scale_huber)
+
+        # Berhu specific parameters
+        self.threshold_berhu = cp.Parameter(nonneg=True, value=threshold_berhu)
+        self.scale_berhu = cp.Parameter(nonneg=True, value=scale_berhu)
+
+        # Override the shared names from parent classes to avoid confusion
+        self.threshold = self.threshold_huber
+        self.scale = self.scale_huber
+
+    def objective(self, x, z, s, t, weights_one, weights_two):
+        huber_obj = huber_penalty.objective(self, x, z, weights_one, weights_two)
+        berhu_obj = berhu_penalty.objective(self, x, z, s, t, weights_one, weights_two)
+        return huber_obj + berhu_obj
+
+    def print_details(self, optimize_weights, weights_two, all_pos, all_neg, sector_w):
+        portfolio.print_details(
+            self, optimize_weights, weights_two, all_pos, all_neg, sector_w
+        )
+
+        if optimize_weights is not None:
+            # Calculate and print Huber penalty
+            # Note: Using weights_two to be consistent with the objective function definition
+            diff = optimize_weights.value - weights_two
+            M = self.threshold_huber.value
+            abs_diff = np.abs(diff)
+            quad_part = np.where(abs_diff <= M, diff**2, 0)
+            lin_part = np.where(abs_diff > M, 2 * M * abs_diff - M**2, 0)
+            huber_val = self.scale_huber.value * np.sum(quad_part + lin_part)
+            print(f"huber penalty: {huber_val:.6f}")
+
+            # Calculate and print Berhu penalty
+            if hasattr(self, "s") and self.s is not None:
+                berhu_val = self.scale_berhu.value * np.sum(
+                    self.s + self.t + self.t**2 / (2 * self.threshold_berhu.value)
+                )
+                print(f"berhu penalty: {berhu_val:.6f}")
+
     # def berhu_function(self, x: cp.Variable, weights_one):
     #     abs_diff = np.abs(x - weights_one)
 
