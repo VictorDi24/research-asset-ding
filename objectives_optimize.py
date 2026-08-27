@@ -1,4 +1,5 @@
 import functools
+import h5py
 import math
 import operator
 import random
@@ -8,8 +9,12 @@ import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
 from scipy import stats
+from pathlib import Path
 
 random.seed(21)
+BASE_DIR = Path(__file__).resolve().parent
+file_weights = BASE_DIR / "short_arr_a.npz"
+file_sectors = BASE_DIR / "sector.h5"
 
 
 def timer(func):
@@ -33,7 +38,7 @@ class portfolio:
         day: int = 0,
         speed: int = 0,
         alpha: float = 1,
-        n_sectors: int = 15,
+        n_sectors: int = 20,
         eps: float = 1e-8,
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
@@ -58,7 +63,7 @@ class portfolio:
         self,
     ):
         start = time.perf_counter()
-        temp = np.load("/home/cding/IdeaProjects/cvxpy_optimize/short_arr_a.npz")
+        temp = np.load(file_weights)
 
         # weights = temp["x"]
         on_off = temp["y"]
@@ -142,7 +147,15 @@ class portfolio:
         return lb_stocks, ub_stocks, self.all_pos, self.all_neg, self.force_zero
 
     def create_sectors(self, weights_two):
-        sector_weights = np.random.rand(self.n_sectors.value, weights_two.shape[0])
+        with h5py.File(file_sectors, "r") as f:
+            dataset_name = list(f.keys())[0]
+
+            dataset = f[dataset_name]
+
+            sector_weights = dataset[
+                1 : self.n_sectors.value + 1, : self.current_weights.shape[0]
+            ]
+
         column_sum = sector_weights.sum(axis=0, keepdims=True)
         sector_weights = sector_weights / column_sum
         self.sector_weights_matrix = cp.Parameter(
