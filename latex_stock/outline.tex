@@ -132,6 +132,71 @@
 
 \title{Stock Optimization Outline}
 \section{Background of Portfolio Construction}
+1. Objectives, Constraints, and Penalties
+Modern portfolio construction descends from Markowitz's mean-variance framework, in which an investor's problem is cast as a trade-off between expected return and risk. In its canonical form, the portfolio manager selects a weight vector
+w
+∈
+R
+n
+w∈R
+n
+  over
+n
+n assets to maximize a risk-adjusted objective — typically expected return net of a risk penalty,
+μ
+⊤
+w
+−
+γ
+ 
+w
+⊤
+Σ
+w
+μ
+⊤
+ w−γw
+⊤
+ Σw — subject to a budget constraint and, in practice, a much richer set of operational restrictions. This formulation generalizes naturally to the long-short setting, where the sign of
+w
+i
+w
+i
+​
+  is no longer fixed and the optimizer must additionally reason about gross exposure, dollar neutrality, and turnover between rebalances.
+
+The objective term captures what the portfolio is for: return maximization, tracking-error minimization relative to a benchmark, or factor-exposure targeting, depending on the mandate. Constraints, by contrast, encode what is permissible: position limits, sector or factor exposure bounds, turnover budgets, and leverage caps. These are typically expressed as linear or second-order-cone inequalities on
+w
+w, and their combination can render the feasible region non-trivial to characterize — degenerate constraint sets, conflicting bounds masks, or turnover budgets that are infeasible under a required sign flip are all practical failure modes that surface directly in the numerical implementation of the optimizer.
+
+Penalties occupy a middle ground between objective and constraint: rather than hard-bounding a quantity, they discourage it continuously, trading off against the primary objective through a tunable weight. Regularization penalties such as the elastic net (a convex combination of
+ℓ
+1
+ℓ
+1
+​
+  and
+ℓ
+2
+ℓ
+2
+​
+  terms) are used to induce sparsity in the resulting portfolio — limiting the number of active positions — while retaining the stability that a pure
+ℓ
+1
+ℓ
+1
+​
+  penalty lacks under correlated assets. More specialized penalties, such as the BerHu (reverse Huber) penalty, interpolate between quadratic and linear regimes across a threshold and scale parameter, offering smoother gradient behavior near zero while still penalizing large deviations linearly. As this paper's subsequent sections discuss, such penalties are not merely modeling conveniences: their numerical realization — particularly at extreme threshold or scale values — can introduce severe dynamic-range mismatches that destabilize the solver, motivating careful attention to how penalty terms are formulated and reformulated for numerical conditioning.
+
+2. Convex Optimization with Solvers as a Primary Approach
+Once the objective, constraints, and penalties are fixed, the choice of solution method follows from the problem's structure. Mean-variance and its extensions are convex whenever the risk term is a positive semidefinite quadratic form and constraints are linear or conic, which places portfolio construction squarely within the reach of convex optimization theory. This convexity is what makes the problem tractable at scale: any local optimum is global, and the Karush-Kuhn-Tucker (KKT) conditions provide a complete characterization of optimality, with the associated Lagrangian dual offering both theoretical insight (shadow prices on constraints, sensitivity analysis) and, in many cases, an alternative computational route to the primal solution.
+
+Earlier approaches to this class of problem — including general-purpose nonlinear solvers such as SLSQP — treat the problem as a smooth constrained optimization instance and rely on sequential quadratic programming with analytic or numerical gradients. While workable for small, well-behaved instances, this approach does not exploit convex structure directly, and is comparatively fragile: infeasibility arising from degenerate constraints, singular matrices, or missing bound specifications must be diagnosed rather than ruled out by construction. A convex-optimization-first approach, by contrast, allows the problem to be expressed in a disciplined convex programming (DCP) form — using epigraph reformulations for non-smooth terms, second-order-cone representations for norm and CVaR-type constraints (following, e.g., the Rockafellar–Uryasev formulation), and auxiliary variables to linearize otherwise non-differentiable penalty terms such as BerHu. This reformulated problem can then be handed to interior-point or first-order conic solvers (e.g., Clarabel, PIQP) that are purpose-built for the resulting cone programs, offering both stronger convergence guarantees and, for problems solved repeatedly under changing parameters, the ability to warm-start or efficiently re-solve via parameterized problem instances.
+
+This paper adopts convex optimization with modern conic solvers as its primary methodological approach, motivated by three considerations: (i) the objective-constraint-penalty structure of realistic long-short portfolio construction is naturally expressible in convex form; (ii) solver-based methods provide certifiable optimality and well-understood failure modes, in contrast to the more opaque convergence behavior of general nonlinear solvers; and (iii) the resulting formulation supports extension to more elaborate penalty structures — including regularization and robust risk measures — without departing from a tractable computational framework. The remainder of this paper details the specific objective, constraint, and penalty formulations used, their convex reformulation, and the numerical considerations that arise in solving them at scale.
+
+
 \subsection{principles of objective, constraints, penalties}
 \subsection{Research gap related to constraints and penalties}
 \subsection{Convex optimization as primary approach}
