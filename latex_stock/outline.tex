@@ -26,6 +26,7 @@
 \usepackage{booktabs}                  % Professional table formatting
 \usepackage{cite}                      % Standard numerical citation management
 \usepackage{hyperref}                  % Hyperlinks and metadata
+\usepackage{dsfont}
 
 % --- Non-Bold Section Title Customization ---
 \usepackage{titlesec}
@@ -122,7 +123,8 @@
 
 \begin{abstract}
 \noindent
-[Insert Abstract Here — 250 words maximum. Provide a concise summary of the research question, core hypothesis or objective, computational or experimental methodology, quantitative results, and broader implications of the findings.]
+[Insert Abstract Here — 250 words maximum. Provide a concise summary of the research question, core hypothesis or objective,
+computational or experimental methodology, quantitative results, and broader implications of the findings.]
 \end{abstract}
 
 \newpage
@@ -132,77 +134,83 @@
 
 \title{Stock Optimization Outline}
 \section{Background of Portfolio Construction}
-1. Objectives, Constraints, and Penalties
-Modern portfolio construction descends from Markowitz's mean-variance framework, in which an investor's problem is cast as a trade-off between expected return and risk. In its canonical form, the portfolio manager selects a weight vector
-w
-∈
-R
-n
-w∈R
-n
-  over
-n
-n assets to maximize a risk-adjusted objective — typically expected return net of a risk penalty,
-μ
-⊤
-w
-−
-γ
- 
-w
-⊤
-Σ
-w
-μ
-⊤
- w−γw
-⊤
- Σw — subject to a budget constraint and, in practice, a much richer set of operational restrictions. This formulation generalizes naturally to the long-short setting, where the sign of
-w
-i
-w
-i
-​
-  is no longer fixed and the optimizer must additionally reason about gross exposure, dollar neutrality, and turnover between rebalances.
 
-The objective term captures what the portfolio is for: return maximization, tracking-error minimization relative to a benchmark, or factor-exposure targeting, depending on the mandate. Constraints, by contrast, encode what is permissible: position limits, sector or factor exposure bounds, turnover budgets, and leverage caps. These are typically expressed as linear or second-order-cone inequalities on
-w
-w, and their combination can render the feasible region non-trivial to characterize — degenerate constraint sets, conflicting bounds masks, or turnover budgets that are infeasible under a required sign flip are all practical failure modes that surface directly in the numerical implementation of the optimizer.
-
-Penalties occupy a middle ground between objective and constraint: rather than hard-bounding a quantity, they discourage it continuously, trading off against the primary objective through a tunable weight. Regularization penalties such as the elastic net (a convex combination of
-ℓ
-1
-ℓ
-1
-​
-  and
-ℓ
-2
-ℓ
-2
-​
-  terms) are used to induce sparsity in the resulting portfolio — limiting the number of active positions — while retaining the stability that a pure
-ℓ
-1
-ℓ
-1
-​
-  penalty lacks under correlated assets. More specialized penalties, such as the BerHu (reverse Huber) penalty, interpolate between quadratic and linear regimes across a threshold and scale parameter, offering smoother gradient behavior near zero while still penalizing large deviations linearly. As this paper's subsequent sections discuss, such penalties are not merely modeling conveniences: their numerical realization — particularly at extreme threshold or scale values — can introduce severe dynamic-range mismatches that destabilize the solver, motivating careful attention to how penalty terms are formulated and reformulated for numerical conditioning.
-
-2. Convex Optimization with Solvers as a Primary Approach
-Once the objective, constraints, and penalties are fixed, the choice of solution method follows from the problem's structure. Mean-variance and its extensions are convex whenever the risk term is a positive semidefinite quadratic form and constraints are linear or conic, which places portfolio construction squarely within the reach of convex optimization theory. This convexity is what makes the problem tractable at scale: any local optimum is global, and the Karush-Kuhn-Tucker (KKT) conditions provide a complete characterization of optimality, with the associated Lagrangian dual offering both theoretical insight (shadow prices on constraints, sensitivity analysis) and, in many cases, an alternative computational route to the primal solution.
-
-Earlier approaches to this class of problem — including general-purpose nonlinear solvers such as SLSQP — treat the problem as a smooth constrained optimization instance and rely on sequential quadratic programming with analytic or numerical gradients. While workable for small, well-behaved instances, this approach does not exploit convex structure directly, and is comparatively fragile: infeasibility arising from degenerate constraints, singular matrices, or missing bound specifications must be diagnosed rather than ruled out by construction. A convex-optimization-first approach, by contrast, allows the problem to be expressed in a disciplined convex programming (DCP) form — using epigraph reformulations for non-smooth terms, second-order-cone representations for norm and CVaR-type constraints (following, e.g., the Rockafellar–Uryasev formulation), and auxiliary variables to linearize otherwise non-differentiable penalty terms such as BerHu. This reformulated problem can then be handed to interior-point or first-order conic solvers (e.g., Clarabel, PIQP) that are purpose-built for the resulting cone programs, offering both stronger convergence guarantees and, for problems solved repeatedly under changing parameters, the ability to warm-start or efficiently re-solve via parameterized problem instances.
-
-This paper adopts convex optimization with modern conic solvers as its primary methodological approach, motivated by three considerations: (i) the objective-constraint-penalty structure of realistic long-short portfolio construction is naturally expressible in convex form; (ii) solver-based methods provide certifiable optimality and well-understood failure modes, in contrast to the more opaque convergence behavior of general nonlinear solvers; and (iii) the resulting formulation supports extension to more elaborate penalty structures — including regularization and robust risk measures — without departing from a tractable computational framework. The remainder of this paper details the specific objective, constraint, and penalty formulations used, their convex reformulation, and the numerical considerations that arise in solving them at scale.
+\subsection{Principles of Portfolio Construction}
 
 
-\subsection{principles of objective, constraints, penalties}
+Modern portfolio construction involves optimizing a weight vector $w \in \mathds{R} ^ n$
+over $n$ assets. To assess the optimality of a portfolio, an objective function is used.
+An example of a classic objective function is Markowitz's Mean-Variance framework, which
+maximizes a risk-adjusted objective:
+\begin{equation}
+    \label{mean-variance_objective}
+    \underset{w}{\min} (\mu ^T w - \lambda w^T \Sigma w),
+\end{equation}
+where $\mu$ is an expected returns vector, $\lambda$ is an exogenous risk-aversion parameter, and $\Sigma$
+is a covariance matrix that defines how assets move together.
+
+Objective functions can be comprised of other forms, such as returning an $L_2$ norm of the difference
+between a calculated target weight vector $\tilde{w}$ and $w$.
+\begin{equation}
+    \label{base_quadratic_objective}
+	f(w) = \underset{w}{\min} (||\tilde{w} - w|| _2 ^ 2)
+\end{equation}
+This objective function will be elaborated upon in section ADDREF.
+
+Constraints encode what is permissible when calculating optimal potfolio weights. Typical constraints
+include individual weight and total potfolio turnovers, position limits, etc. Implementing such
+constraints often make portfolio optimization non-trivial, and can present difficulties with convexity
+and proper execution.
+
+Penalties occupy a middle-ground between an objective function and constraints; instead of placing a
+hard boundary on portfolios, they discourage going past a certain threshold continuously. In the case
+of \ref{base_quadratic_objective}, penalties come in the form of added terms.
+
+Once the objective function, constraints, and penalties are defined, the choice of solving method
+will be contingent on the problem's structure. Objective \ref{mean-variance_objective} is convex
+if $\Sigma$ is positive semi-definite and if its constraints maintain a convex feasible set.
+Objective \ref{base_quadratic_objective} acts similarly, placing both objectives within the reach of
+Disciplined Convex Programming (DCP). The convexity makes any local optimum a global minimum or maximum,
+and the Karush-Kuhn Tucker (KKT) conditions provide a complete characterizastion of optimality which
+we will elaborate upon later in section ADDREF.
+
+The widespread efficiency and availability of DCP solvers means convex problems can be optimized
+notably quickly.
 \subsection{Research gap related to constraints and penalties}
-\subsection{Convex optimization as primary approach}
 \section{Problem Setup}
-\subsection{KKT and global optimality conditions}
-\subsection{target and optimized model}
+\subsection{$L_2$ Target-Optimize Vectors}
+Let $\tilde{w}$ be a weight vector with the same size as $w$. It is a signal-driven constant vector
+indicating ideal target weights to consider in constructing a new portfolio. $\tilde{w}$ is
+normalized such that it possesses a consistent scale and is comparable across adjustments.
+In long-short portfolios, this typically takes the form of a gross exposure normalization:
+\begin{align*}
+    \mathbf{1}^T |\tilde{w}| & = \Omega, \\
+    \tilde{w} &= \frac{\tilde{w}}{\Omega}
+\end{align*}
+Normalizing fixes scales and units in which the objective function and subsequent constraints are
+expressed, and avoids degenerate solutions where magnitudes are dilated rather than truly
+altering relative composition of the portfolio.
+
+Gross exposure constraints will also be placed upon $w$, the new portfolio being optimized. With
+exact gross exposure constraints that apply to $w$ and $\tilde{w}$, this ensures equal scale.
+This gross exposure constraint must be an equality to be effective, and is elaborated upon in
+ADDREF.
+
+The primary objective function $f(w)$ we will use for the remainder of this paper will be
+\begin{equation}
+	f(w) = ||\tilde{w} - w||_2^2 + (\dots),
+\end{equation}
+where $(\dots)$ indicate additional penalties added to the objective (to be added in sections ADDREF)
+$f(w)$ is currently quadratic and convex, meaning it can be optimized through Quadratic Programming (QP)
+and Disciplined Convex Programming (DCP).
+
+\subsection{Karush-Kuhn-Tucker and Global Optimality Conditions}
+Because the portfolio construction problems considered henceforth are convex, their solutions are
+exact and can be calculated via DCP. Consider objective function $f(w)$:
+\begin{equation}
+
+\end{equation}
+
 \begin{enumerate}
     \item Mention normalizing weights
     \item Denote objective function as something f(w)?
@@ -215,9 +223,9 @@ This paper adopts convex optimization with modern conic solvers as its primary m
     \item noise in predictions
     \item transaction costs
     \item don't wish to make constraints overly binding
-    \item explain preference for linear constraints
     \item maintain convexity (brief, explain in full later)
 \end{enumerate}
+
 \subsection{Introducing all constraints}
 \begin{enumerate}
     \item Max/min weights and individual turnover
@@ -250,17 +258,19 @@ This paper adopts convex optimization with modern conic solvers as its primary m
 \subsection{Alpha gating for total upper turnover}
 \subsection{Elastic net}
 \begin{enumerate}
-    \item Show impact and intuition
+    \item Show reason for needing elastic net and intuition
+    \item explain how the elastic net works
     \item demonstrate convexity
-    \item picking exogenous parameters
+    \item Explain how exogenous parameters impact results and objective function
+    \item Briefly explain what other fields utilize elastic nets
 \end{enumerate}
 \subsection{Berhu}
 \begin{enumerate}
-    \item concept of huber's loss
+    \item concept of huber's loss and what berhu's loss is
     \item value of using berhu's loss
-    \item Converting Berhu loss into convex form
-    \item picking exogenous parameters
-    \item Show results
+    \item Converting Berhu loss into convex form and implementation
+    \item Explain how exogenous parameters impact results and objective function
+    \item Difference between Berhu loss and Elastic Net
 \end{enumerate}
 \section{Numerical Experiments}
 \subsection{contents tbd}
