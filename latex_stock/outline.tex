@@ -117,31 +117,26 @@ function is Markowitz's Mean-Variance framework:
 where $r$ is a vector of expected returns, $\lambda$ is an exogenous risk-aversion parameter, and $\Sigma$ is a covariance
 matrix of asset returns. The design is driven by the desire to strike a balance between risks and payoffs.
 
-Objective functions can take other forms, such as $L_2$ norm of the deviation from a weight vector $\tilde{w}$. A given vector
+Objective functions can take other forms, such as $L_2$ norm of the deviation from a target vector $\tilde{w}$. A given vector
 $\tilde{w}$ can be a benchmark portfolio to track, or a target portfolio driven by some forecasting models. It is often
 desirable to mimic such a portfolio as closely as possible. One reasonable approach is to minimize this objective:
 \begin{equation*}
 	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2.
 \end{equation*}
-A non-negative diagonal weighting scheme matrix $\Gamma$ can also be introduced to generalize the above objective function further,
+A non-negative diagonal weighting scheme matrix $\Gamma$ can also be incorporated to generalize the above objective function further:
 \begin{equation*}
+    \label{gamma_matrix}
 	\underset{w}{\min}\left[\frac{1}{2} (w - \tilde{w})'\Gamma(w - \tilde{w})\right] \equiv
   \underset{w}{\min}\left[\frac{1}{2} w'\Gamma w - \tilde{w}'\Gamma w \right].
 \end{equation*}
 This problem will be elaborated upon in section \ref{target_objective_section}.
 
 A majority of portfolio construction problems can be formulated in certain quadratic forms like the above. Typical constraints
-include position limits, and total portfolio turnovers, etc.
+include position limits, risk exposure and turnovers, etc.
 
-Appropriate solution methods is contingent on the problem's structure. Objective \eqref{mean-variance_objective} is convex
-if $\Sigma$ is positive semi-definite and if its constraints maintain a convex feasible set.
-The $L_2$ norm objective acts similarly, placing both objectives within the reach of
-Disciplined Convex Programming (DCP). The convexity makes any local optimum a global minimum,
-and the Karush-Kuhn Tucker (KKT) conditions provide a complete characterization of optimality which
-we will elaborate upon later in section \ref{KKT_section}.
-
-The widespread efficiency and availability of DCP solvers means convex problems can be optimized
-notably quickly.
+Objective \eqref{mean-variance_objective} is convex if $\Sigma$ is positive semi-definite and if the constraints
+maintain a convex feasible set. Objective \eqref{gamma_matrix} acts similarly, placing both objectives within the reach of
+Disciplined Convex Programming (DCP). DCP problems can be easily solved with DCP solvers.
 
 % \subsection{Research gap related to constraints and penalties}
 % COMPLETE LATER
@@ -152,57 +147,57 @@ notably quickly.
 
 \section{Implementation Framework}
 
-Let us focus on minimizing the family of problems with a base quadratic objective component $q(w)$, which captures the conventional Mean-Variance
-problem and target tracking problem.
+Let us focus on minimizing the family of objectives with a quadratic term $q(w)$, which captures the conventional Mean-Variance
+problem \eqref{mean-variance_objective} and target tracking problem \eqref{gamma_matrix}.
 
-Constraints can model numerous types of boundaries, including risk modeling. This includes factor exposure bounds,
+MOVE LATER
+Constraints model numerous types of boundaries, including risk modeling. This includes factor exposure bounds,
 sector or industry neutrality, and tracking error limits.
 
 Inputs such as return estimates, risk model coefficients, and target forecasts in $\tilde{w}$ are all estimates subject to
 statistical errors. Thus, a problem subject to overly permissive constraints is susceptible to concentrated exposure on assets
-with potentially poor signals. Constraints like turnover and position limits act as a form of regularization against
-over-adjusting to noisy models.
+with potentially poor signals. Constraints like turnover and position limits arise from practical considerations and also serve as a
+form of regularization on model solutions.
 
-On the other hand, we look to avoid overly-tight constraints. While constraints have utility, each imposition reduces the feasible region of
-potential solutions. An excessively rigid set of boundaries can force the optimizer to a suboptimal corner of a feasible set that
-reflects very little of the objective.  Therefore, we shall try to set constraints such that they are reflective of practical and risk limits rather than as
-the determining factor in calculating an optimal point. In other words, we do not wish for constraints to "drive" the solution;
-the solver should be dictated in part by $\tilde{w}$.
+On the other hand, we look to avoid overly-tight constraints. While constraints have their purposes, each one shrinks the feasible set of
+potential solutions. Certain constraints may result in solutions that reflect little of the objective. Therefore, constraints should be set
+such that they do not "drive" the solution; the solution should be dictated in part by the objective function.
 
 While potential payoffs are often uncertain, transaction costs are incurred upon execution. Turnover budgets and individual
-turnovers are imposed, so a portfolio is discouraged from chasing marginal returns for excessive transaction costs.
+turnovers are often imposed, so a solution is discouraged from chasing marginal benefits with excessive transaction costs.
 
-Regardless of the form of a constraint, we show a preference for preserving convexity of the overall feasible
-region. Non-convexity in a feasible region makes it far more difficult for a solver to reliably calculate an optimal solution,
-often trapping the algorithm in local minima. Linear equalities, inequalities, and second-order cone constraints
-define half-spaces, hyperplanes, and second-order cones respectively. These all define convex sets. For constraints
-that are non-smooth but inherently convex (such as absolute values or piecewise functions), we exercise exact epigraph
-reformulations with auxiliary variables. For constraints that are truly non-convex, we employ convex relaxations to approximate
-the feasible space while maintaining computational tractability.
+REFORMAT
+Linear equalities, inequalities, and second-order cones define half-spaces, hyperplanes, and second-order cones respectively.
+These all define convex sets. Optimization works better
+when the feasible set is convex. Because of this, we show a preference for preserving convexity of the overall
+feasible region. For constraints that are non-smooth but inherently convex (such as absolute values or piecewise functions), we
+exercise exact epigraph reformulations with auxiliary variables. For constraints that are truly non-convex, we employ convex
+relaxations to approximate the feasible space while maintaining computational tractability.
 
 \subsection{Constraints}
-Subjecting $w$ to minimum and maximum individual asset boundaries can be accomplished with strictly linear constraints.
-Constraints are defined by vectors $\underline{w}$ and $\overline{w}$, respectively.
+Position limits can be represented as
 \begin{align*}
-    \underline{w} & \leq w \leq \overline{w}.
+    \underline{w} & \leq w \leq \overline{w},
 \end{align*}
-Similarly, limiting each individual asset's turnover to values denoted by vector $t$ can be accomplished through
-more linear inequalities.
+where constant vectors $\underline{w} \in \mathds{R}^n$ and $\overline{w} \in \mathds{R}^n$ are upper and lower bounds, respectively.
+
+Similarly, limiting each individual turnover is represented by
 \begin{equation*}
-    |w - w^*| \leq t.
+    |w - w^*| \leq t,
 \end{equation*}
-Net exposure $\rho$ is equal to the value of long exposure positions minus the value of short exposure positions. Essentially, it equals $e'w$ where
-$e \in \mathds{R}^n$ is a vector with all ones. The net exposure takes the form
-\begin{align*}
-	|e' w| \le \rho.
-\end{align*}
-Assets can have exposure in multiple attributes, so many models utilize risk modeling to select optimal asset weights. For example, although a small tech startup will have exposure in just
-a technology sector, a company like Alphabet operates in several. Companies can also have negative exposure in attribtues if their growths have an inverse relationship with attributes.
+where $t \geq 0 \in \mathds{R}^n$ defines individual turnover bounds. Turnover bounds can also essentially be folded into position bounds, as
+$w^*$ is always a constant.
 
-There are more than just one type of attributes. Although there are popular standards for defining sectors, there are other types of attributes; Equity style factors (growth, momentum, value, etc)
-detail different predictions on how certain assets can outperform others. Even a measurement as simple as net exposure can be viewed as a balance of exposure in long and short attributes.
 
-There are several ways to impose constraints on characteristic exposures. One of the ways is to express $n$ assets' exposure in $m$ attributes with an $m\times n$ matrix $\mathbf{S}$.
+
+We define an attribute as a characteristic of an asset, which encompasses risk modeling, equity style factors, and more. Risk modeling is often adopted in portfolio
+construction to limit risk exposure, commonly in sectors and industries. Equity style factors (growth, momentum, value, etc) are also attributes, and can be used in risk
+modeling. These detail different predictions on how certain assets can outperform others.
+
+Assets can also have exposure to multiple attributes. For example, although a small tech startup will have exposure in just a technology sector, a company like
+Alphabet operates in several. Companies can also have negative exposure in attribtues if their growths have an inverse relationship with attributes.
+
+We express $n$ assets' exposure in $m$ attributes with an $m\times n$ matrix $\mathbf{S}$.
 For example, a potential $\mathbf{S}$ for $n$ assets across various attributes is shown in Table \ref{example_attribute_matrix}.
 
 \begin{table}[t]
@@ -229,11 +224,16 @@ For example, a potential $\mathbf{S}$ for $n$ assets across various attributes i
     \end{tabular}
 \end{table}
 
-Given a factor loading matrix $\mathbf{S}_{m\times n}$, the total portfolio exposures to the $m$ factors are $\mathbf{S}w$. The
+Given an exposure matrix $\mathbf{S}_{m\times n}$, the total portfolio exposures to the $m$ factors are $\mathbf{S}w$. The
 exposure limits can be represented as
 \begin{equation}
     \underline{s} \leq \mathbf{S}w \leq \overline{s}
 \end{equation}
+Net exposure is a special example of an attribute that can be included as a row of all ones in $\mathbf{S}$.
+It is equal to the value of long exposure positions minus the value of short exposure positions.
+
+An explicit calculation of net exposure takes the form $e' w$, where $e$ is a vector of ones.
+
 Total turnover bounds aggregate change in position across all assets using an $L_1$ constraint on the difference
 between $w$ and $w^*$, bounded by total turnover $T$.
 \begin{equation}
@@ -279,7 +279,7 @@ In its current state, the objective function satisfies these conditions as it co
 implemented thus far satisfy, the exception being gross exposure.
 \subsection{Treatment of Total Turnover}
 \label{total_turnover_section}
-Numerous solvers do not natively accept absolute value constraint expressions, making it not directly compatible with
+Numerous solvers do not natively accept $L1$ norm constraint expressions, making it not directly compatible with
 \eqref{unedited_total_turnover}. A slack variable operation is created to circumvent this. A buffer vector $y \in \mathds{R}^n$
 with the same size as $w$ is subjected to the constraint
 \begin{align*}
@@ -353,10 +353,11 @@ Other local search methods may improve upon this approach:
 \section{Soft Cap of Transaction Costs}
 \label{additional_gating}
 
-Hard constraints that bound turnover and other portfolio characteristics have certain downsides. Violating a hard constraint by
-a negligible amount and by a comparatively huge amount have the exact same effect, meaning rounding errors, tiny violations,
-and genuine infeasibility are treated the same. Furthermore, if for some $i$, $|w_i^* - \tilde{w}_i|$ is greater than $t_i$,
-there is a sizable chance that the stock should be considerably skewed in the direction of $\tilde{w}_i$. In those cases,
+Hard constraints that bound turnover and other portfolio characteristics have certain downsides. Problems should be set such that they are
+reflective of practical and risk limits, rather than impose constraints that dictate optimality.
+Violating a hard constraint by a negligible amount and by a comparatively huge amount have the exact same effect, meaning rounding
+errors, tiny violations, and genuine infeasibility are treated the same. Furthermore, if for some $i$, $|w_i^* - \tilde{w}_i|$ is significantly
+greater than $t_i$, there is a considerable chance that the stock should be considerably skewed in the direction of $\tilde{w}_i$. In those cases,
 it is desirable to permit certain violations of hard constraints. To do this, we introduce soft constraints.
 
 Soft constraints allow such violations while discouraging large ones by adding a penalty to the objective. We will consider three
