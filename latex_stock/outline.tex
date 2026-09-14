@@ -105,8 +105,6 @@ address the limitation of pure constraints.
 \newpage
 \section{Background of Portfolio Construction}
 
-\subsection{Principles of Portfolio Construction}
-
 Modern portfolio construction involves optimizing an objective function defined over a vector of $n$ asset positions
 $w \in \mathds{R}^n$, where positive (negative) values represent long (short) positions. An example of a classic objective
 function is Markowitz's Mean-Variance framework:
@@ -174,35 +172,22 @@ Position limits can be represented as
 \end{align*}
 where constant vectors $\underline{w} \in \mathds{R}^n$ and $\overline{w} \in \mathds{R}^n$ are upper and lower bounds, respectively.
 
-Similarly, limiting each individual turnover is represented by
-\begin{equation*}
-    |w - w^*| \leq t,
-\end{equation*}
-where constant $t \in \mathds{R}^n$ defines individual turnover bounds, and $w^*$ defines the starting weight vector. Turnover bounds can essentially be incorporated into position limits since $w^*$ is a constant vector:
-
-\begin{equation*}
-
-\end{equation*}
-
-
-
-Maybe remove?
-Constraints model numerous types of boundaries, including risk modeling. This includes factor exposure bounds,
-sector or industry neutrality, and tracking error limits.
+Similarly, limiting each individual turnover is represented by $|w - w^*| \leq t$,
+where constant $t \in \mathds{R}^n$ defines individual turnover bounds, and $w^*$ defines the starting weight vector. Turnover bounds can essentially be incorporated into position limits since $w^*$ is a constant vector.
 
 We define an attribute as a characteristic of an asset, which encompasses risk modeling, equity style factors, and more. Risk
 modeling is often adopted in portfolio construction to limit risk exposure, commonly in sectors and industries. Equity style
 factors (growth, momentum, value, etc.) are also attributes, and can be used in risk modeling. These detail different
 predictions on how certain assets can outperform others.
-Assets can also have exposure to multiple attributes. For example, although a small tech startup will have exposure in just a technology sector, a company like
-Alphabet operates in several. Companies can also have negative exposure in attribtues if their growths have an inverse relationship with attributes.
+Assets can also have exposure to multiple attributes. For example, although a small tech startup can have exposure in just a technology sector, a company that sells computer chips operates in several. Companies can also have negative exposure in attributes if their growths have an inverse relationship with attributes.
 
 We express $n$ assets' exposure in $m$ attributes with an $m\times n$ matrix $\mathbf{S}$. For example, a potential $\mathbf{S}$
 for $n$ assets across various attributes is shown in Table \ref{example_attribute_matrix}.  The total portfolio exposures to the
 $m$ factors are $\mathbf{S}w$. The exposure limits can be represented as
 \begin{equation}
-    \underline{s} \leq \mathbf{S}w \leq \overline{s}
+    \underline{s} \leq \mathbf{S}w \leq \overline{s},
 \end{equation}
+where $\underline{s}$ and $\overline{s}$ are lower and upper exposure limits, respectively.
 
 \begin{table}[t]
 \label{example_attribute_matrix}
@@ -227,9 +212,8 @@ $m$ factors are $\mathbf{S}w$. The exposure limits can be represented as
     \end{tabular}
 \end{table}
 
-Net exposure is a special example of an attribute that can be included as a row of all ones in $\mathbf{S}$. It is equal to the
-value of long exposure positions minus the value of short exposure positions. The net exposure of a portfolio is $e' w$, where
-$e$ is a vector of ones.
+Net exposure is a special example of an attribute, and is equal to the
+value of long exposure positions minus the value of short exposure positions. It can be included as an attribute through a row of all ones in $\mathbf{S}$.  The net exposure of a portfolio is $e' w$, where $e$ is a vector of ones.
 
 A constant upper bound $T > 0$ may be imposed on total turnover as
 \begin{equation}
@@ -256,14 +240,14 @@ specific amount of capital invested in a portfolio. It is common to limit the gr
 \end{equation*}
 This is still a convex constraint like that on total turnovers. But the optimal solution may find it cheaper to settle at a
 gross exposure far less than $G$, effectively underinvesting with available capital. It is thus attractive to place a lower
-bound $\underline{G}$ on the gross exposure as well. When $G=\underline{G}$, the constraint becomes an equality one.
+bound $\underline{G}$ on the gross exposure as well. When $G=\underline{G}$, the constraint becomes an equality.
 \begin{equation}
     \label{explicit_gross_exposure}
 	\lVert w\rVert_1 = G.
 \end{equation}
 In long-only or short-only portfolios, absolute value signs in \eqref{explicit_gross_exposure} can be trivially removed so that
 it becomes a convex constraint. But the presence of a lower bound or equality constraints in long-short portfolios makes the
-feasible set non-convex. This poses a problem for most solvers in its current form. We will need to address this
+feasible set non-convex, which poses a problem for most solvers. We will need to address this
 non-convexity in section \ref{gross_exposure_section}.
 
 \subsection{Karush-Kuhn-Tucker and Global Optimality Conditions}
@@ -281,23 +265,21 @@ implemented thus far satisfy, the exception being gross exposure.
 \subsection{Treatment of Total Turnover}
 \label{total_turnover_section}
 Many solvers do not natively accept $L1$ norm expressions like \eqref{unedited_total_turnover}.
-A slack variable operation is created to circumvent this. A buffer vector $y \in \mathds{R}^n$
+A slack variable operation is created to circumvent this. Thus, we introduce the buffer vector $y \in \mathds{R}^n$, where
 \begin{equation}\label{eq:tvr-slack}
 	|w^* - w| \leq y, \quad e'y \leq T.
 \end{equation}
 Since increasing $y_i$ will only make this condition more difficult to satisfy and doesn't affect the objective value, $y_i$
-will be forced downwards toward the tightest feasible value $y_i = |w_i^* - w_i|$. In doing so, \eqref{unedited_total_turnover}
-is replaced with strictly linear expressions. At the optimal value, it must satisfy
+will be forced downwards toward the tightest feasible value $y_i = |w_i^* - w_i|$:
 \begin{equation*}
     e' y = \lVert w^* - w\rVert_1 \leq T.
 \end{equation*}
-These reformulated constraints are strictly linear.
-
+Thus, $T$ is bound by strictly linear expressions.
 
 \subsection{Difficulties of Gross Exposure}
 \label{gross_exposure_section}
 A set $\mathcal{C} \subset \mathds{R}^n$ is convex if and only if for any two points $a$ and $b$ in $\mathcal{C}$ and every
-$\theta \in [0,1]$ the following is also true:
+$\theta \in [0,1]$ the following is true:
 \begin{equation}
     \label{convexity_definition}
 	\theta a + b (1 - \theta) \in \mathcal{C}.
@@ -328,7 +310,7 @@ The non-convexity arises from the uncertain signs of the optimal solution, which
 process. Even Mixed-Integer Convex Programming (MICP) will have difficulty finding a global optimal solution in a timely and
 resource-efficient manner when $n$ is particularly large.
 
-One way to overcome it is forcing the sign of $\{w_i\}$ according to some rules prior to setting up the gross exposure
+One way to overcome this is forcing the sign of $\{w_i\}$ according to some rules prior to setting up the gross exposure
 constraint. Let $G^+ > 0$ be the desired long exposure, and $G^- < 0$ be the negative counterpart. The total gross exposure
 becomes $G^+ - G^- = G$. We propose to match the sign of $w$ to those of $\tilde{w}$ for all $i$ such that
 \begin{alignat*}{2}
@@ -529,9 +511,6 @@ $y_i$ is almost negligible. For the Berhu's Loss, one can set a concrete thresho
 % ADD ADDITIONAL USAGES OF BERHU/HUBER?
 
 \section{Huber's Loss Objective Function}
-\subsection{Target Tracking}
-\label{target_objective_section}
-
 Up to this point, the base objective family $q(w)$ we used was a quadratic function along with some linear or quadratic penalty
 terms represented by $p(w)$, an example of which is \eqref{gamma_matrix}. A target vector $\tilde{w}$ may represent a benchmark
 portfolio or a model driven portfolio. It is often desirable to form portfolios as close as possible to such a given portfolio
@@ -545,9 +524,11 @@ long-short portfolios, this typically takes the form of a gross exposure normali
 Normalizing fixes scales and units in which the objective function and subsequent constraints are
 expressed, and avoids degenerate solutions where magnitudes are dilated rather than truly
 altering relative composition of the portfolio.
+\subsection{Target Tracking}
+\label{target_objective_section}
 
-The Huber's Loss function \eqref{huber_loss} is particularly interesting as an alternative objective function for
-\eqref{gamma_matrix}. For an individual tracking error $x_i = w_i - \tilde{w}_i$, and a threshold parameter $\delta$, the
+
+The Huber's Loss function \eqref{huber_loss} is particularly interesting as an alternative objective function. For an individual tracking error $x_i = w_i - \tilde{w}_i$, and a threshold parameter $\delta$, the
 Huber's Loss function can be written as
 \begin{equation*}
     h(x_i) = \begin{dcases}
