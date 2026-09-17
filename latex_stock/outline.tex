@@ -11,14 +11,13 @@
 
 \documentclass[11pt, letterpaper]{article}
 
-% --- Core Formatting & Page Layout ---
+%Formatting
 \usepackage[margin=1in]{geometry}
 \usepackage{setspace}
 \onehalfspacing
 
-% --- Typography & Math Setup ---
+%Typing and fonts
 \usepackage{authblk}
-% \usepackage{newtxtext,newtxmath}                  % Times font family
 \usepackage{mathtools}
 \usepackage{amsmath, amsfonts, amssymb} % Advanced mathematical modeling & matrix operations
 \usepackage{graphicx}                  % Figure inclusion
@@ -27,7 +26,15 @@
 \usepackage{hyperref}                  % Hyperlinks and metadata
 \usepackage{dsfont}
 
-% --- Non-Bold Section Title Customization ---
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+
+%TikZ packages
+\newcommand{\dlt}{1}
+\newlength{\figgap}\setlength{\figgap}{2.4cm}
+\newcommand{\panelw}{0.40\textwidth}
+
 \usepackage{titlesec}
 
 % Section: Large, Normal Weight (Non-Bold)
@@ -47,7 +54,7 @@
 % \titlespacing*{\subsection}{0pt}{10pt}{4pt}
 % \titlespacing*{\subsubsection}{0pt}{8pt}{2pt}
 
-% --- Hyperlink Setup ---
+%Hyperlink Setup
 \hypersetup{
     colorlinks=true,
     linkcolor=black,
@@ -56,7 +63,6 @@
     citecolor=black
 }
 
-% --- Code & Algorithmic Listing Setup ---
 \usepackage{listings}
 \usepackage{xcolor}
 
@@ -129,7 +135,7 @@ A non-negative diagonal weighting scheme matrix $\Gamma$ can also be incorporate
   \underset{w}{\min}\left[\frac{1}{2} w'\Gamma w - \tilde{w}'\Gamma w \right].
 \end{equation}
 Mathematically, this function is a special case of \eqref{mean-variance_objective}. Discussion of the objective will be elaborated upon in section
-\ref{target_objective_section}.
+\ref{sec:huber_loss}.
 
 A majority of portfolio construction problems can be formulated in certain quadratic forms like the above. Typical constraints
 include position limits, risk exposure and turnovers, etc.
@@ -212,8 +218,8 @@ where $\underline{s}$ and $\overline{s}$ are lower and upper exposure limits, re
     \end{tabular}
 \end{table}
 
-Net exposure is a special example of an attribute, and is equal to the
-value of long exposure positions minus the value of short exposure positions. It can be included as an attribute through a row of all ones in $\mathbf{S}$.  The net exposure of a portfolio is $e' w$, where $e$ is a vector of ones.
+Net exposure, equal to the value of long exposure positions minus the value of short exposure positions, is a special form of
+attributes. It can be captured as a row of ones in $\mathbf{S}$.
 
 A constant upper bound $T > 0$ may be imposed on total turnover as
 \begin{equation}
@@ -221,7 +227,7 @@ A constant upper bound $T > 0$ may be imposed on total turnover as
 	\lVert w^* - w\rVert_1 \leq T.
 \end{equation}
 This introduces a total budget over the sum of individual turnovers. In practice, individual turnover limits in $t$ are often
-set to such that $T \leq \sum_i t_i$; otherwise, the total turnover cap will become redundant. Total turnover can be further generalized
+set such that $T \leq \sum_i t_i$; otherwise, the total turnover cap will become redundant. Total turnover can be further generalized
 with a weighting vector $c > 0$ such that
 \begin{equation*}
 	c' |w^* - w| \leq T.
@@ -230,42 +236,7 @@ The vector $c$ and $T$ may represent some transaction cost estimates and a budge
 
 The $L_1$ constraint \eqref{unedited_total_turnover} is not directly supported by many solvers.
 Although convex, it is not affine, and
-is not differentiable at $w_i = w_i^*$. To alleviate this, slack variables can be created to reformulate the constraint. This
-operation is explained in detail in section \ref{total_turnover_section}.
-
-Gross exposure, $\lvert w\rVert_1$, is another measure often involved in some constraints, as firms often wish to keep a
-specific amount of capital invested in a portfolio. It is common to limit the gross exposure (leverage) by an upper bound $G$ as
-\begin{equation*}
-	\lvert w\rVert_1 \leq G.
-\end{equation*}
-This is still a convex constraint like that on total turnovers. But the optimal solution may find it cheaper to settle at a
-gross exposure far less than $G$, effectively underinvesting with available capital. It is thus attractive to place a lower
-bound $\underline{G}$ on the gross exposure as well. When $G=\underline{G}$, the constraint becomes an equality.
-\begin{equation}
-    \label{explicit_gross_exposure}
-	\lVert w\rVert_1 = G.
-\end{equation}
-In long-only or short-only portfolios, absolute value signs in \eqref{explicit_gross_exposure} can be trivially removed so that
-it becomes a convex constraint. But the presence of a lower bound or equality constraints in long-short portfolios makes the
-feasible set non-convex, which poses a problem for most solvers. We will need to address this
-non-convexity in section \ref{gross_exposure_section}.
-
-\subsection{Karush-Kuhn-Tucker and Global Optimality Conditions}
-\label{KKT_section}
-Because the portfolio construction problems considered henceforth are convex, their solutions are
-exact and can be calculated via DCP. Suppose a quadratic objective is bounded by affine constraints that
-create a convex feasible set. The Karush-Kuhn-Tucker (KKT) conditions \cite{boyd2004KKT} define the framework for determining
-optimality. For a convex objective function with convex inequality and affine equality constraints, a point
-that satisfies the conditions is guaranteed to be a global minimum. Using a convex quadratic form to satisfy these conditions
-calls for two conditions: a positive semi-definite Hessian matrix, which indicates convexity, and a
-constraint qualification, which we will fulfill through using affine constraints.
-
-In its current state, the objective function satisfies these conditions as it contains purely quadratic terms, and almost all constraints
-implemented thus far satisfy, the exception being gross exposure.
-\subsection{Treatment of Total Turnover}
-\label{total_turnover_section}
-Many solvers do not natively accept $L1$ norm expressions like \eqref{unedited_total_turnover}.
-A slack variable operation is created to circumvent this. Thus, we introduce the buffer vector $y \in \mathds{R}^n$, where
+is not differentiable at $w_i = w_i^*$. Many solvers do not natively accept $L_1$ norm expressions like \eqref{unedited_total_turnover}. We introduce the slack vector $y \in \mathds{R}^n$, such that
 \begin{equation}\label{eq:tvr-slack}
 	|w^* - w| \leq y, \quad e'y \leq T.
 \end{equation}
@@ -275,6 +246,37 @@ will be forced downwards toward the tightest feasible value $y_i = |w_i^* - w_i|
     e' y = \lVert w^* - w\rVert_1 \leq T.
 \end{equation*}
 Thus, $T$ is bound by strictly linear expressions.
+
+Gross exposure, $\lvert w\rVert_1$, is another measure often involved in some constraints, as it is often desirable to keep a
+specific amount of capital invested in a portfolio. It is common to limit the gross exposure (leverage) by an upper bound $G$ as
+\begin{equation}\label{eq:exposure-ineq}
+	\lvert w\rVert_1 \leq G.
+\end{equation}
+This is still a convex constraint like that on total turnovers. But the optimal solution may find it cheaper to settle at a
+gross exposure far less than $G$, effectively underinvesting with available capital. It is thus attractive to place a lower
+bound $\underline{G}$ on the gross exposure as well. When $G=\underline{G}$, the constraint becomes an equality.
+\begin{equation}
+    \label{explicit_gross_exposure}
+	\lVert w\rVert_1 = G.
+\end{equation}
+In long-only or short-only portfolios, absolute value signs in \eqref{explicit_gross_exposure} can be trivially removed so that
+it becomes a convex constraint. But the presence of a lower bound or equality constraints in long-short portfolios makes the
+feasible set non-convex, which poses a problem for most solvers. We will address this non-convexity in section
+\ref{gross_exposure_section}.
+
+\subsection{Karush-Kuhn-Tucker and Global Optimality Conditions}
+\label{KKT_section}
+Because the portfolio construction problems considered henceforth are convex, their solutions are
+exact and can be calculated via DCP. Suppose a quadratic objective is bounded by affine constraints that
+create a convex feasible set. The Karush-Kuhn-Tucker (KKT) conditions \cite{boyd2004KKT} define the framework for determining
+optimality.
+
+In an optimization setting with quadratic objective function, a positive semi-definite Hessian matrix ensures convexity of the
+contour set. When constraints are affine, the feasible set is also convex. Under such conditions, a local optimal minimum is
+also the global minimum.
+
+A well-behaved convariance matrix $\Sigma$ in \eqref{mean-variance_objective} is positive semi-definite, so is $\Gamma$ in
+\eqref{gamma_matrix}. Almost all the constraints discussed so far are also convex with the exception of gross exposure.
 
 \subsection{Difficulties of Gross Exposure}
 \label{gross_exposure_section}
@@ -318,37 +320,42 @@ becomes $G^+ - G^- = G$. We propose to match the sign of $w$ to those of $\tilde
 	\sum_{i\in\mathcal{W}^-} {w_i} &= G^-,\quad & \mathcal{W}^-=\{i|\tilde{w}_i < 0\},\\
 	\sum_{i\in\mathcal{W}^0} {w_i} &= 0, & \mathcal{W}^0=\{i|\tilde{w}_i = 0\}.
 \end{alignat*}
-The price is that the feasible set is effectively shrunken, and consequently will not guarantee to yield the global optimal
-solution of the original problem.
+The price is that the feasible set is effectively shrunken, and consequently may not yield the global optimal solution of the
+original problem.
 
 There are more ways to rid of non-convexity. Other local search methods may improve upon this approach:
 \begin{itemize}
 \item Solve the original problem with inequality, and use the signs of the solution vector to derive $\mathcal{W}^+$,
-	$\mathcal{W}^-$, and $\mathcal{W}^0$.
-\item After one iteration, flip the signs of whose securities $|w_i|$ is within a small band $\epsilon$ to update
-  $\mathcal{W}^+$, $\mathcal{W}^-$, and $\mathcal{W}^0$. Solve again. If there is improvement, increase $\epsilon$ and repeat.
-  If not, stop.
+	$\mathcal{W}^-$, and $\mathcal{W}^0$. Solve the problem with the equality constraint along with the determined signs.
+\item After one iteration, flip the signs of securities with $|w_i|$ inside a small band $\epsilon$ to update $\mathcal{W}^+$,
+  $\mathcal{W}^-$, and $\mathcal{W}^0$. Solve again. If there is improvement, increase $\epsilon$ and repeat.  If not, stop.
 \item Solve the original problem with inequality, and scale all the weights such that $\lVert w\rVert = G$.  Feed the results
   back to solve again.
 \end{itemize}
+Unfortunately, these are all heuristic approaches to resolve sign uncertainty prior to the optimization. No one can guarantee
+the global optimum with these approaches. As long as the feasible set is not expanded like \eqref{eq:exposure-ineq}, the
+objective functions across various heuristic approaches can be compared so that they are guaranteed not to perform worse.
 
 \section{Hard and Soft Caps of Transaction Costs}
 \label{additional_gating}
 
-Hard constraints that bound turnover and other portfolio characteristics have certain downsides. Problems should be set such that they are
-reflective of practical and risk limits, rather than impose constraints that dictate optimality.
-Violating a hard constraint by a negligible amount and by a comparatively huge amount have the exact same effect, meaning rounding
-errors, tiny violations, and genuine infeasibility are treated the same. Furthermore, if for some $i$, $|w_i^* - \tilde{w}_i|$ is significantly
-greater than $t_i$, there is a considerable chance that the stock should be considerably skewed in the direction of $\tilde{w}_i$. In those cases,
-it is desirable to permit certain violations of hard constraints. To do this, we introduce soft constraints.
+Hard constraints that bound turnover and other portfolio characteristics have certain downsides. We prefer to impose them to
+reflect practical and risk limits, rather than dictate optimality. Violating a hard constraint by a negligible amount and by a
+comparatively huge amount have the exact same effect, meaning rounding errors, tiny violations, and genuine infeasibility are
+treated the same. Furthermore, some powerful signals may prefer to trade significantly more, either of individual securities or
+across the whole portfolio and the risk-adjusted payoffs far exceed the likely incurred transaction costs. In those cases, it is
+desirable to permit certain violations of hard constraints. To do this, we introduce soft constraints.
 
 Soft constraints allow such violations while discouraging large ones by adding a penalty to the objective. We will consider three
-distinct types of soft constraints: an alpha penalty, an Elastic Net, and a Berhu penalty.
+distinct types of soft constraints: a turnover penalty, an Elastic Net, and a Berhu penalty.
 
 \subsection{Soft Cap of Total Turnover}
 The trading from $w^*$ to $w$ incurs transaction costs. Naturally, this requires balancing objective and turnover to avoid
 paying deterministic upfront costs on insignificant or uncertain transactions. Imposing a hard budge limit on total turnover,
-however, handicaps the portfolio construction on achieving its objective.
+however, handicaps the portfolio construction on achieving its objective. Instead, we should consider the potential trade-offs
+of excessive turnovers.
+
+COMMENT
 
 The change from $w^*$ to $w$ incurs transaction costs. Naturally, this requires balancing tracking error and turnover to avoid
 paying fixed costs on insignificant transactions. Using a concrete turnover bound that doesn't discourage/encourage different
@@ -358,15 +365,17 @@ incur fixed costs. In other words, we should increase the number of unchanged as
 approach to execute this involves setting a certain threshold $\left |w^*_i - \tilde{w}_i \right|$ past which an asset will be
 forced to remain unchanged. However, this hard constraint leaves no room for exceptions.
 
+COMMENT
+
 In addition to a hard upper bound $T$ on total turnover $\lVert w - w^*\rVert_1$ or as its replacement, we can introduce a slack
 variable $z > 0$ to relax the hard bound such that
 \begin{equation*}
 	\lVert w - w^*\rVert_1 \leq \tilde{T} + z,
 \end{equation*}
-and add a penalty term to the objective function $q(w)$,
-\begin{equation*}
+and add a penalty term to the objective function $q(\cdot)$,
+\begin{equation}\label{eq:tvr-total}
 	p(z) = \alpha z^2.
-\end{equation*}
+\end{equation}
 The exogenous parameter $\alpha > 0$ determines the cost of going above $\tilde{T}$. The variable $z$ will be optimized along
 with $w$. The quadratic term has the benefit of having a comparable magnitude with many objective function forms of $q(w)$ such
 that the choice of $\alpha$ can be more intuitive. It is completely reasonable to replace it with $\alpha |z|$. The presence of
@@ -375,7 +384,7 @@ an absolute value poses no difficult here given that $z \geq 0$.
 This formulation is very intuitive. The total turnover is allowed to exceed $\tilde{T}$, but pays a penalty to do so. If
 turnover is less than $\tilde{T}$, no penalty is added. The larger the value of $\alpha$, the more the final turnover is
 discouraged from exceeding $T$, and vice versa. This ``soft cap'' is not a rigid hard bound, allowing some room to trade more
-when situation dictates that. When both a ``hard cap'' and a ``soft cap'' are present, we generally have $\tilde{T} < T$ such
+when situation dictates that. When both a ``hard cap'' and a ``soft cap'' are present, we generally have $\tilde{T} < T$ in
 that $T$ serves as a final safeguard on the total turnover.
 
 \section{Regularization of Noisy Trades}
@@ -385,95 +394,120 @@ $e'\Gamma |w - w^*|$ by a budget, it is also desirable to reduce the amount of i
 results of some computational or statistical noises, or are simply too insignificant to justify the execution or handling
 costs.
 
-We wish to induce a degree of sparsity in a portfolio's turnovers, eliminating noisy trades. A common approach to achieve it
-involves setting a certain threshold for $\left |w^*_i - w_i \right|$ below which those $\{w_i\}$ will be forced to stay at
-$\{w_i^*\}$, meaning no trade allowed. However, this hard rule may be too rigid, and the threshold setting also seems rather
-arbitrary.
+We wish to induce a degree of sparsity in a portfolio's turnovers, eliminating noisy trades. A common approach to encourage
+sparsity involves setting a certain threshold for $\left |w^*_i - w_i \right|$ below which those $\{w_i\}$ will be forced to
+stay at $\{w_i^*\}$, meaning no trade allowed. However, this hard rule may be too rigid, and the threshold setting also seems
+rather arbitrary.
 
 This problem is very similar to variable selection in various regression frameworks where coefficients of some variables are
 shrunk towards zero to yield more parsimonious models. It is thus not surprising that similar techniques can be employed to
-regularize $w - w^*$.
+regularize $|w - w^*|$.
 \subsection{Elastic Net}
 
 Ridge Regression \cite{hoerl1970ridge} softens rigid parameters through adding an $L_2$ norm scaled by a multiplier. This allows a soft constraint while
-simultaneously discouraging it past a certain point. Lasso regression \cite{tibshirani1996lasso} modifies the $L_2$ norm to instead be an $L_1$ norm.
-The Elastic Net \cite{zou2005elasticnet} uses both Lasso and Ridge simultaneously. This concept can be applied to portfolio optimization,
-penalizing noise trades:
+simultaneously discouraging it past a certain point. Lasso regression \cite{tibshirani1996lasso} utilizes the $L_1$ norm instead.
+The Elastic Net \cite{zou2005elasticnet} uses both $L_1$ and $L_2$ norms simultaneously. This concept can be applied to portfolio optimization, penalizing turnovers:
 \begin{equation}
 	\label{elastic_net_objective}
 	\gamma\left[\beta \lVert w-w^*\rVert_1 + \frac{1 - \beta}{2} \lVert w-w^*\rVert_2^2\right],
 \end{equation}
-where $\beta \geq 0$ and $\gamma > 0$ are adjustable exogenous parameters. The $L_1$ penalty promotes sparsity. It is a
-mechanism that drives small weight turnovers to $0$, reducing the number of assets to trade. The $L_1$ multiplier $\beta$
-governs the degree of sparsity on the portfolio. A larger $\beta$ reflects a higher marginal cost of initiating a new
-trade. This shrinks the amount of sensible trades, forcing the optimizer to only execute trades where expected returns outweigh
-a fixed transaction cost. The parameter $\gamma$ controls the overall scale of this penalty term relative to the objective
-function $q(w)$.
+where $0 \leq \beta \leq 1$ and $\gamma > 0$ are adjustable exogenous parameters.
 
-The ${L_2}$ penalty promotes smoothness. It prevents a single element from changing drastically. Hence, turnover among
-correlated assets is distributed more evenly than with the absolute value penalty. For example, the $L_2$ penalty resulting from
+The $L_1$ penalty promotes sparsity, driving small weight turnovers to $0$, reducing the number of assets to trade. The $L_1$
+multiplier $\beta$ governs the relative aggressiveness of shrinkage. A larger $\beta$ reflects a higher marginal cost of
+initiating a new trade. This reduces the number of small weight turnovers. The parameter $\gamma$ controls the overall scale of this penalty term relative to the objective
+function $q(\cdot)$.
+
+The $L_2$ penalty promotes smoothness. It prevents related trades from swinging violently with tiny changes. Turnover among
+correlated assets is distributed more evenly than with only an $L_1$ penalty. For example, the $L_2$ penalty resulting from
 two turnovers $0.2$ and $0.2$ is smaller than the penalty resulting from $0.1$ and $0.3$, even though the total turnover is the
 same. Thus, the $L_2$ turnover results in spreading turnover more evenly across assets. The $\beta$ parameters governs relative
 strength of penalties between the two terms.
 
-A penalty term \eqref{elastic_net_objective} and an alpha gating quadratic term can be added to a base quadratic objective
-$q(w)$.
-Each term in the objective is either an $L_1$ norm, $L_2$ norm, or a quadratic function. If all scalars $\alpha$, $\beta$,
-and $\gamma$ are positive (which they should be, otherwise penalties will not work as intended), the entire objective
-function is strictly convex. This ensures that any optimal solution is a global optimum. Note that an $L_1$ norm in
-the objective function is permissible, while an $L_1$ norm equality constraint is not convex.
+A penalty term \eqref{elastic_net_objective} can be added to a base quadratic objective $q(\cdot)$ along with other penalty
+terms such as \eqref{eq:tvr-total}.  Each term in the objective is either an $L_1$ norm, $L_2$ norm, or a quadratic
+function. Since all scalars $\alpha$, $\beta$, and $\gamma$ are positive, the entire objective function maintains its
+convexity. The greater $\gamma$ is, the more trades will be pushed towards zero.
 
-The greater $\gamma$ is, the more trades will be pushed towards zero. Since both $\beta$ and $\gamma$ are inherently non-negative, the entire objective function is strictly convex. This guarantees that any local optimal solution is also the
-global optimum.
 % ADD OTHER FIELDS THAT UTILIZE ELASTIC FIELDS: Regression and AI
 \subsection{Berhu's (Reverse Huber's) Loss}
-Elastic Net penalties subject portfolio weights to both $L_1$ and $L_2$ penalties, regardless of the magnitude of an asset's turnover.
-We can introduce a piecewise function that contains separate $L_1$ and $L_2$ penalties, then set a specific threshold $\epsilon$ where one
-or the other is used. To do this, we utilize a Berhu's (Reverse Huber) Loss.
+Elastic Net penalties subject portfolio weights to both $L_1$ and $L_2$ penalties, regardless of the magnitude of an asset's
+turnover.  We can introduce a piecewise function that contains either $L_1$ and $L_2$ penalties over non-overlapping regions. To
+do this, we utilize a Berhu's (Reverse Huber) Loss.
 
 Denote $u_i = |w_i - w_i^*|$. Frequently used in regressions, the Huber's Loss function takes the form
 \begin{equation}
 \label{huber_loss}
-    h(u_i) = \begin{dcases}
+    h(u_i) = \begin{cases}
         \frac{u_i^2}{2\epsilon} & \text{if } u_i \leq \epsilon, \\
         u_i - \frac{\epsilon}{2} & \text{if } u_i > \epsilon.
-    \end{dcases}
+    \end{cases}
 \end{equation}
 It applies a quadratic penalty for small deviations, and a linear penalty for large deviations. This mitigates the influence of
 extreme outliers in regression while maintaining differentiability throughout.
-Berhu's Loss, also known as Reverse Huber's Loss, inverts the order of the quadratic and linear functions, and is added to the objective function; for a turnover
-$y_i$ and a threshold scalar $\epsilon > 0$, the Berhu Loss is
-defined as
+
+Berhu's Loss, also known as Reverse Huber's Loss, inverts the order of the quadratic and linear functions. Given
+$y_i = w_i - w_i^*$ and a threshold scalar $\epsilon > 0$, the Berhu Loss is defined as
 \begin{equation}
 \label{berhu_loss}
-    b(y_i) = \begin{dcases}
+    b(y_i) = \begin{cases}
         y_i & \text{if } y_i \leq \epsilon, \\
         \frac{y_i^2 + \epsilon^2}{2\epsilon} & \text{if } y_i > \epsilon.
-    \end{dcases}
+    \end{cases}
 \end{equation}
 
-The Berhu function works similarly to an Elastic Net, but only applies either an $L_1$ norm or $L_2$ norm at a time. For minor weight adjustments where
-$y_i \leq \epsilon$, the penalty is linear, promoting sparsity. For significant weight adjustments where $y_i \geq \epsilon$, the
-penalty becomes quadratic and prevents concentrated trades.
+The Berhu function works similarly to an Elastic Net, but only applies either an $L_1$ norm or $L_2$ norm at a time. For minor
+weight adjustments where $y_i \leq \epsilon$, the penalty is linear, promoting sparsity. For significant weight adjustments
+where $y_i \geq \epsilon$, the penalty becomes quadratic and tend to spared trades across securities.
 
 Intuitively, Elastic Net sharpens but does not completely eliminate the smooth edges of the feasible set while the Berhu's
-function shrinks the areas of pointy edges but still preserve the indifferentiable areas. Both encourage more control variables
-to go towards zero upon contact with the objective function at the optimal solution, just in slightly different fashions. As a
-trade increases beyond $\epsilon$, Berhu's function becomes quadratic while a comparable Elastic Net still maintains a linear
+function shrinks the areas of pointy edges but still preserve the indifferentiable vertices. Both encourage more control
+variables to go towards zero upon contact with the objective contour set at the optimal solution, just in slightly different
+fashions. Once a turnover exceeds $\epsilon$, Berhu's function becomes quadratic while a comparable Elastic Net still maintains an $L_1$
 term. Therefore, Berhu's functions penalize the large outliers more aggressively than the similar Elastic Net functions.
 
 \begin{figure}
-    \centering
-    \includegraphics[scale = 0.45]{huber_berhu_transparent.png}
-    \caption{Berhu's Loss (Left) and Huber's Loss (Right).}
-    \label{fig:loss_comparison}
-\end{figure}
+	\centering
+	\label{fig:huber_berhu}
+	\begin{tikzpicture}[scale=0.8, transform shape]
 
+    %Huber's Function
+    \begin{scope}[xshift=-5.5cm]
+        %Axes
+        \draw[->, thick] (-5, 0) -- (5, 0);
+        \draw[->, thick] (0, -0.5) -- (0, 5.5);
+
+        % Inner function extended
+        \draw[gray, very thick, dotted, domain=-3.31:3.31, samples=100] plot (\x, {0.5*\x*\x});
+
+        % Huber function
+        \draw[blue, very thick] (-4.5, 4) -- (-1, 0.5);
+        \draw[blue, very thick, domain=-1:1, samples=50] plot (\x, {0.5*\x*\x});
+        \draw[blue, very thick] (1, 0.5) -- (4.5, 4);
+    \end{scope}
+
+    %Berhu's Function
+    \begin{scope}[xshift=5.5cm]
+        %Axes
+        \draw[->, thick] (-5, 0) -- (5, 0);
+        \draw[->, thick] (0, -0.5) -- (0, 5.5);
+
+        % Inner function extended
+        \draw[gray, very thick, dotted] (-4.5, 4.5) -- (0, 0) -- (4.5, 4.5);
+
+        % Berhu function (Red)
+        \draw[red, very thick, domain=-3.16:-1, samples=50] plot (\x, {0.5*(\x*\x + 1)});
+        \draw[red, very thick] (-1, 1) -- (0, 0) -- (1, 1);
+        \draw[red, very thick, domain=1:3.16, samples=50] plot (\x, {0.5*(\x*\x + 1)});
+    \end{scope}
+    \end{tikzpicture}
+    \caption{Huber's Loss (Left) and Berhu's Loss (Right)}
+\end{figure}
 This function is convex and continuous everywhere. That said, its piecewise nature makes it difficult to implement
 directly into a solver, as many solvers do not accept piecewise functions natively or have a designated Berhu function.
 To resolve this, we'll create an epigraph formulation with auxiliary variables.
 
-Define two non-negative auxiliary variables $u_i \geq 0$ and $v_i \geq 0$ subject to the following constraints:
+Define two non-negative auxiliary vector $u \geq 0$ and $v \geq 0$ subject to the following constraints for all $i$:
 \begin{equation*}
 	u_i + v_i \geq y_i, \quad u_i \leq \epsilon,
 \end{equation*}
@@ -487,46 +521,32 @@ $\frac{v_i^2}{2\epsilon}$ grows more rapidly than the linear term $u_i$, being m
 constraint $u_i + v_i \geq y_i$ forces $u_i = y_i$, making the penalty exactly $y_i$, matching the linear branch of
 \eqref{berhu_loss}. When $y_i > \epsilon$, the minimizer pushes $u_i$ to its upper bound $\epsilon$, resulting in $v_i$ being
 non-zero $v_i = y_i - \epsilon$, while the cost becomes $\frac{y_i^2 + \epsilon ^ 2}{2\epsilon}$. This matches the value of the
-quadratic branch of \eqref{berhu_loss}. Thus, we've reformulated the piecewise Berhu function \eqref{berhu_loss} into only an
-epigraph with auxiliary variables.
+quadratic branch of \eqref{berhu_loss}.
 
 A penalty term based on \eqref{berhu_epigraph} can be defined as
 \begin{equation}
 	b_t(y) = \gamma \sum \left(u_i + v_i + \frac{v_i^2}{2\epsilon}\right) = \gamma \sum_i{\left[y_i + \frac{1}{2\epsilon}\max[y_i - \epsilon, 0]^2\right]},
 \end{equation}
 where $\gamma > 0$ is an adjustable exogenous scale coefficient that determines the scale of this term relative to the objective
-function $q(w)$ and other penalty terms present. All terms in the objective function are either quadratic or linear, so the
+function $q(\cdot)$ and other penalty terms present. All terms in the objective function are either quadratic or linear, so the
 function is convex.
 
-Once again, it is important to consider the impact of changes in the parameters. Threshold $\epsilon$ is the inflection point where the
-penalty transitions from linear to quadratic. A small $\epsilon$ means the optimizer switches to quadratic penalties at very small turnover values,
-resulting in a more dense portfolio with fewer turnovers pushed to exactly $0$.
-
+Threshold $\epsilon$ is the inflection point where the penalty transitions from linear to quadratic. A small $\epsilon$ means
+the optimizer switches to quadratic penalties at very small turnover values, resulting in a more dense portfolio with fewer
+turnovers reduced to exactly $0$.
 A large $\epsilon$ means the penalty remains linear for a wider range of turnovers, promoting sparsity in the same way the Elastic Net acted.
 
-As stated before, the difference between \eqref{elastic_net_objective} and \eqref{berhu_epigraph} is that \eqref{berhu_epigraph} imposes only one penalty per asset,
-while \eqref{elastic_net_objective} imposes both simultaneously. So in an Elastic Net, the "effective" $L_1$ penalty is always slightly increased, even when
-$y_i$ is almost negligible. For the Berhu's Loss, one can set a concrete threshold $\epsilon$ past which they wish to start imposing quadratic penalties.
+As stated before, the Berhu's Loss imposes only one penalty per asset,
+while an Elastic Net imposes both simultaneously. So in an Elastic Net, the "effective" $L_1$ penalty is always present. For the Berhu's Loss, once the threshold $\epsilon$ is exceeded, the $L_1$ penalty term disappears.
 
 % ADD ADDITIONAL USAGES OF BERHU/HUBER?
 
-\section{Huber's Loss Objective Function}
+\section{Huber's Loss for Target Tracking}
+\label{sec:huber_loss}
 Up to this point, the base objective family $q(w)$ we used was a quadratic function along with some linear or quadratic penalty
-terms represented by $p(w)$, an example of which is \eqref{gamma_matrix}. A target vector $\tilde{w}$ may represent a benchmark
+terms represented by $p(\cdot)$, an example of which is \eqref{gamma_matrix}. A target vector $\tilde{w}$ may represent a benchmark
 portfolio or a model driven portfolio. It is often desirable to form portfolios as close as possible to such a given portfolio
 subject to various constraints.
-
-$\tilde{w}$ is normalized such that it possesses a consistent scale and is comparable across adjustments.  In
-long-short portfolios, this typically takes the form of a gross exposure normalization:
-\begin{align*}
-    \lVert\tilde{w}\rVert_1 & = G.
-\end{align*}
-Normalizing fixes scales and units in which the objective function and subsequent constraints are
-expressed, and avoids degenerate solutions where magnitudes are dilated rather than truly
-altering relative composition of the portfolio.
-\subsection{Target Tracking}
-\label{target_objective_section}
-
 
 The Huber's Loss function \eqref{huber_loss} is particularly interesting as an alternative objective function. For an individual tracking error $x_i = w_i - \tilde{w}_i$, and a threshold parameter $\delta$, the
 Huber's Loss function can be written as
@@ -537,14 +557,14 @@ Huber's Loss function can be written as
     \end{dcases}
 \end{equation*}
 Similar to \eqref{berhu_epigraph}, this can be reformulated to a single equation using auxiliary
-variables $u_i$ and $v_i$:
+variables $u_i$ and $v_i$, then scaled by a factor $\lambda$:
 \begin{equation}
 	\label{huber_loss_deviation_epigraph}
-	h(v_i) = \lambda\left(\frac{u_i^2}{2\delta} + v_i\right),
+	h(x_i) = \lambda\left(\frac{u_i^2}{2\delta} + v_i\right),
 \end{equation}
 where
 \begin{align*}
-	u_i + v_i^+ - v_i^- &\geq v_i,\\
+    u_i + v_i &\geq x_i,\\
 	0 \leq u_i &\leq \delta, \\
 	v_i &\geq 0.
 \end{align*}
@@ -573,16 +593,17 @@ where
 CVXPY \cite{cvxpy} contains designated Huber functions that allows direct specification without slack vectors $u$ and $v$. Behind the scene, however, it carries out the similar conversions from Huber functions.
 
 % this part needs rewrite.
-Perhaps unsurprisingly, this epigraph is the mirror opposite of our previously derived reformulation for the Berhu's Loss.
-\eqref{huber_loss_deviation_epigraph} can then be made the entire objective function, along with other penalties such as alpha
-gating, Elastic Net, or Berhu's Loss. In portfolio optimization, minimizing the squared tracking error (deviation from
-$\tilde{w}$) or optimizing a covariance matrix $\Sigma$ can make the optimizer sensitive to outliers. If some $\tilde{w}$
-predicts an extreme, inaccurate weight for a single stock, the optimizer can appropriate a comparatively massive amount of
-exposure. A Huber's Loss base objective function applies an $L_2$ norm for small $|w - \tilde{w}|$, and an $L_1$ norm for larger
-turnovers, preventing anomalous $\tilde{w}$ values from hijacking total exposure allocation. The value of $\lambda$ dictates how
+The loss function \eqref{huber_loss_deviation_epigraph} can be made the objective function, along with other penalties such as
+turnover gating, Elastic Net, or Berhu's Loss. In portfolio optimization, minimizing the squared tracking error is sensitive to
+outliers. The Huber's Loss based objective function penalizes larger $|w - \tilde{w}|$ less than the quadratic one. The value of $\lambda$ dictates how
 much the solver discourages responses to large outliers in $\tilde{w}$.
-% \section{Numerical Experiments}
-% \subsection{contents tbd}
+
+\section{Numerical Experiments}
+This section is currently under construction.
+
+We compiled data from a Hedge Fund...
+
+\subsection{contents tbd}
 % \section{Conclusion}
 % \subsection{Parallels with Machine Learning and Parameter Searching}
 % \subsection{Next steps in research}
