@@ -14,7 +14,122 @@ from pathlib import Path
 random.seed(21)
 BASE_DIR = Path(__file__).resolve().parent
 file_weights = BASE_DIR / "short_arr_a.npz"
+file_weights_long = BASE_DIR / "arr.npz"
 file_sectors = BASE_DIR / "sector.h5"
+data_file_path = BASE_DIR / "optimized_portfolio.npz"
+
+def create_data_file(save : bool = False):
+    data = np.load(file_weights_long)
+    y = data["y"].astype(bool)
+    weights = data["z"]
+    weights = np.nan_to_num(weights, nan=0.0, posinf=0.0, neginf=0.0)
+    # sector_weighting = np.load(file_sectors)
+
+    num_days, num_assets, num_speeds = weights.shape
+    print(f"processing {num_days} days, {num_assets} assets, {num_speeds} speeds")
+
+    y_3d = y[:, :, np.newaxis]
+    counts = np.sum(y_3d, axis=1, keepdims=True)
+    counts_safe = np.where(counts == 0, 1, counts)
+
+    # =========================================================================
+    # 1. Process Day N weights (Current Day) using Day N mask
+    # =========================================================================
+    w_curr = np.where(y_3d, weights, 0.0)
+
+    sum_curr = np.sum(np.abs(w_curr), axis=1, keepdims=True)
+    norm_w_curr = w_curr / np.where(sum_curr == 0, 1.0, sum_curr)
+
+    mean_curr = np.sum(norm_w_curr, axis=1, keepdims=True) / counts_safe
+    final_w_curr = np.where(y_3d, (norm_w_curr - mean_curr) * 2.0, 0.0)
+
+    # =========================================================================
+    # 2. Process Day N-1 weights using Day N mask (Matching your snippet)
+    # =========================================================================
+    # Shift raw weights down by 1 day so index n represents day n-1
+    weights_prev = np.zeros_like(weights)
+    weights_prev[1:] = weights[:-1]
+
+    # Apply Day N mask to Day N-1 raw weights!
+    w_prev = np.where(y_3d, weights_prev, 0.0)
+
+    sum_prev = np.sum(np.abs(w_prev), axis=1, keepdims=True)
+    norm_w_prev = w_prev / np.where(sum_prev == 0, 1.0, sum_prev)
+
+    mean_prev = np.sum(norm_w_prev, axis=1, keepdims=True) / counts_safe
+    final_w_prev = np.where(y_3d, (norm_w_prev - mean_prev) * 2.0, 0.0)
+
+    # =========================================================================
+    # 3. Calculate Turnover & Metrics
+    # =========================================================================
+    result_dtype = np.dtype([
+        ("maximum", "f8"),
+        ("minimum", "f8"),
+        ("long_exposure", "f8"),
+        ("count", "i8"),
+        ("total turnover", "f8"),
+    ])
+    result = np.empty((num_days, num_speeds), dtype=result_dtype)
+
+    has_active = counts.squeeze(axis=1) > 0
+
+    # Min/Max over active assets for the current day
+    max_vals = np.where(y_3d, final_w_curr, -np.inf).max(axis=1)
+    min_vals = np.where(y_3d, final_w_curr, np.inf).min(axis=1)
+
+    result["maximum"] = np.where(has_active, max_vals, 0.0)
+    result["minimum"] = np.where(has_active, min_vals, 0.0)
+    result["long_exposure"] = np.maximum(final_w_curr, 0.0).sum(axis=1)
+    result["count"] = counts.squeeze(axis=1)
+
+    # Turnover is now the difference between the identically-masked datasets
+    turnover = np.sum(np.abs(final_w_curr - final_w_prev), axis=1)
+    turnover[0] = 0.0  # Zero out the first day since there is no day -1
+    result["total turnover"] = turnover
+
+    # mask = np.broadcast_to(~y[:, :, np.newaxis], weights.shape)
+
+    # weights_masked = np.ma.array(weights, mask=mask)
+    # weight_sums = np.ma.sum(np.abs(weights_masked), axis=1, keepdims=True)
+    # weight_sums_safe = np.ma.where(weight_sums == 0, 1.0, weight_sums)
+    # normalized_weights = weights_masked / weight_sums_safe
+    # normalized_weights -= np.ma.mean(normalized_weights, axis=1, keepdims=True)
+    # normalized_weights *= 2
+
+    # result_dtype = np.dtype([
+    #         ('maximum', 'f8'),
+    #         ('minimum', 'f8'),
+    #         ('long_exposure', 'f8'),
+    #         ('count', 'i8'),
+    #         ('total turnover', 'f8')
+    #     ])
+
+    # result = np.empty((num_days, num_speeds), dtype=result_dtype)
+
+    # result['maximum'] = np.ma.max(normalized_weights, axis=1)
+    # result['minimum'] = np.ma.min(normalized_weights, axis=1)
+    # long_weights = np.ma.where(normalized_weights > 0, normalized_weights, 0.0)
+    # result['long_exposure'] = np.ma.sum(long_weights, axis=1)
+    # result['count'] = np.ma.count(normalized_weights, axis=1)
+
+    # valid_both_days = y[:-1] & y[1:]
+    # valid_both_mask = np.broadcast_to(~valid_both_days[:, :, np.newaxis], (num_days - 1, num_assets, num_speeds))
+
+    # # Raw day-over-day weight differences
+    # raw_diffs = normalized_weights[1:].data - normalized_weights[:-1].data
+
+    # # Mask out differences where either day was inactive
+    # weight_diffs_intersection = np.ma.array(raw_diffs, mask=valid_both_mask)
+
+    # # weight_diffs = np.ma.diff(normalized_weights, axis=0)
+    # turnover_subsequent = np.ma.sum(np.abs(weight_diffs_intersection), axis=1)
+    # turnover_initial = np.zeros((1, num_speeds))
+    # result['total turnover'] = np.vstack([turnover_initial, turnover_subsequent])
+
+    if save:
+        np.savez(data_file_path, result=result)
+
+    return result
 
 
 def timer(func):
@@ -35,7 +150,7 @@ class portfolio:
         individual_turnover: float = 0.008,
         max_weight: float = 0.008,
         total_turnover: float = 0.8,
-        day: int = 0,
+        day: int = 1,
         speed: int = 0,
         alpha: float = 1,
         n_sectors: int = 20,
@@ -69,11 +184,11 @@ class portfolio:
         on_off = temp["y"]
         delta = temp["z"]
         weights = delta[
-            self.day.value : self.day.value + self.number_gates.value,
+            self.day.value - 1: self.day.value + self.number_gates.value - 1,
             :,
             self.speed.value,
         ]
-        day_on_off = on_off[self.day.value + 1]
+        day_on_off = on_off[self.day.value]
         day_weights = weights[:, day_on_off]
         day_weights[np.isnan(day_weights)] = 0
 
@@ -306,7 +421,7 @@ class portfolio:
 
         return constraints, sector_weights
 
-    def generate_opt(self, opt_index):
+    def generate_opt(self,opts):
         TOL = 1e-8
         MAX_ITER = 100000
 
@@ -329,7 +444,7 @@ class portfolio:
             "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
         }
 
-        if opt_index == "piqp":
+        if opts == "piqp":
             return piqp_opts
         else:
             return clarabel_opts
@@ -400,7 +515,7 @@ class portfolio:
             lb_stocks,
             ub_stocks,
         )
-        opts = self.generate_opt("clarabel")
+        opts = self.generate_opt(self.solver)
         problem = cp.Problem(
             cp.Minimize(self.objective(x, z, weights_one, weights_two)),
             constraints,
@@ -640,7 +755,7 @@ class huber_penalty(portfolio):
         super().print_details(optimize_weights, weights_two, all_pos, all_neg, sector_w)
 
         if optimize_weights is not None:
-            diff = optimize_weights.value - self.current_weights.value
+            diff = optimize_weights.value - weights_two
             M = self.threshold.value
 
             abs_diff = np.abs(diff)
