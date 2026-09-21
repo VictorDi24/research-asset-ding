@@ -17,13 +17,13 @@ file_weights = BASE_DIR / "short_arr_a.npz"
 file_weights_long = BASE_DIR / "arr.npz"
 file_sectors = BASE_DIR / "sector.h5"
 data_file_path = BASE_DIR / "optimized_portfolio.npz"
+all_attributes = BASE_DIR / "hrs1.h5"
 
-def create_data_file(save : bool = False):
+def create_data_file(save : bool = False, num_attributes: int = 30):
     data = np.load(file_weights_long)
     y = data["y"].astype(bool)
     weights = data["z"]
     weights = np.nan_to_num(weights, nan=0.0, posinf=0.0, neginf=0.0)
-    # sector_weighting = np.load(file_sectors)
 
     num_days, num_assets, num_speeds = weights.shape
     print(f"processing {num_days} days, {num_assets} assets, {num_speeds} speeds")
@@ -32,9 +32,6 @@ def create_data_file(save : bool = False):
     counts = np.sum(y_3d, axis=1, keepdims=True)
     counts_safe = np.where(counts == 0, 1, counts)
 
-    # =========================================================================
-    # 1. Process Day N weights (Current Day) using Day N mask
-    # =========================================================================
     w_curr = np.where(y_3d, weights, 0.0)
 
     sum_curr = np.sum(np.abs(w_curr), axis=1, keepdims=True)
@@ -43,10 +40,6 @@ def create_data_file(save : bool = False):
     mean_curr = np.sum(norm_w_curr, axis=1, keepdims=True) / counts_safe
     final_w_curr = np.where(y_3d, (norm_w_curr - mean_curr) * 2.0, 0.0)
 
-    # =========================================================================
-    # 2. Process Day N-1 weights using Day N mask (Matching your snippet)
-    # =========================================================================
-    # Shift raw weights down by 1 day so index n represents day n-1
     weights_prev = np.zeros_like(weights)
     weights_prev[1:] = weights[:-1]
 
@@ -59,15 +52,13 @@ def create_data_file(save : bool = False):
     mean_prev = np.sum(norm_w_prev, axis=1, keepdims=True) / counts_safe
     final_w_prev = np.where(y_3d, (norm_w_prev - mean_prev) * 2.0, 0.0)
 
-    # =========================================================================
-    # 3. Calculate Turnover & Metrics
-    # =========================================================================
     result_dtype = np.dtype([
         ("maximum", "f8"),
         ("minimum", "f8"),
         ("long_exposure", "f8"),
         ("count", "i8"),
         ("total turnover", "f8"),
+        ("attribute exposures", "f8", (200,5))
     ])
     result = np.empty((num_days, num_speeds), dtype=result_dtype)
 
@@ -82,49 +73,17 @@ def create_data_file(save : bool = False):
     result["long_exposure"] = np.maximum(final_w_curr, 0.0).sum(axis=1)
     result["count"] = counts.squeeze(axis=1)
 
-    # Turnover is now the difference between the identically-masked datasets
     turnover = np.sum(np.abs(final_w_curr - final_w_prev), axis=1)
     turnover[0] = 0.0  # Zero out the first day since there is no day -1
     result["total turnover"] = turnover
 
-    # mask = np.broadcast_to(~y[:, :, np.newaxis], weights.shape)
 
-    # weights_masked = np.ma.array(weights, mask=mask)
-    # weight_sums = np.ma.sum(np.abs(weights_masked), axis=1, keepdims=True)
-    # weight_sums_safe = np.ma.where(weight_sums == 0, 1.0, weight_sums)
-    # normalized_weights = weights_masked / weight_sums_safe
-    # normalized_weights -= np.ma.mean(normalized_weights, axis=1, keepdims=True)
-    # normalized_weights *= 2
-
-    # result_dtype = np.dtype([
-    #         ('maximum', 'f8'),
-    #         ('minimum', 'f8'),
-    #         ('long_exposure', 'f8'),
-    #         ('count', 'i8'),
-    #         ('total turnover', 'f8')
-    #     ])
-
-    # result = np.empty((num_days, num_speeds), dtype=result_dtype)
-
-    # result['maximum'] = np.ma.max(normalized_weights, axis=1)
-    # result['minimum'] = np.ma.min(normalized_weights, axis=1)
-    # long_weights = np.ma.where(normalized_weights > 0, normalized_weights, 0.0)
-    # result['long_exposure'] = np.ma.sum(long_weights, axis=1)
-    # result['count'] = np.ma.count(normalized_weights, axis=1)
-
-    # valid_both_days = y[:-1] & y[1:]
-    # valid_both_mask = np.broadcast_to(~valid_both_days[:, :, np.newaxis], (num_days - 1, num_assets, num_speeds))
-
-    # # Raw day-over-day weight differences
-    # raw_diffs = normalized_weights[1:].data - normalized_weights[:-1].data
-
-    # # Mask out differences where either day was inactive
-    # weight_diffs_intersection = np.ma.array(raw_diffs, mask=valid_both_mask)
-
-    # # weight_diffs = np.ma.diff(normalized_weights, axis=0)
-    # turnover_subsequent = np.ma.sum(np.abs(weight_diffs_intersection), axis=1)
-    # turnover_initial = np.zeros((1, num_speeds))
-    # result['total turnover'] = np.vstack([turnover_initial, turnover_subsequent])
+    with h5py.File(all_attributes, "r") as f:
+        arr = weights[:len(sorted(f.keys()))]
+        breakpoint()
+        for k, (key, value, mask) in enumerate(zip(sorted(f.keys()), arr, y)):
+            renewed_weights = value[mask]
+            result["attribute exposures"][k] = f[key][1:201] @ renewed_weights
 
     if save:
         np.savez(data_file_path, result=result)
