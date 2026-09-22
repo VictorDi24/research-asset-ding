@@ -90,6 +90,20 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
 
     return result
 
+def loop_optimization(num_days: int = 30):
+    temp = np.load(file_weights_long)
+    on_off = temp["y"]
+    delta = temp["z"]
+    start_time = time.perf_counter()
+    port = portfolio(pass_file=True, assets_on=on_off, assets=delta, printouts=False)
+    for current_day in range(1, num_days):
+        for current_speed in range(0, 5, 2):
+            port.speed.value = current_speed
+            port.day.value = current_day
+            port.run_optimize()
+    end_time = time.perf_counter()
+    print(f"Optimization completed over {num_days * 3} portfolios: {num_days} days, {3} speeds")
+    print(f"Total time: {end_time - start_time:.4f} seconds")
 
 def timer(func):
     @functools.wraps(func)
@@ -117,9 +131,14 @@ class portfolio:
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
         solver: str = "clarabel",
+        printouts: bool = True,
+        pass_file: bool = False,
+        assets_on: np.ndarray = None,
+        assets: np.ndarray = None,
     ) -> None:
 
         # Parameters subject to change
+
         self.individual_turnover = cp.Parameter(nonneg=True, value=individual_turnover)
         self.max_weight = cp.Parameter(nonneg=True, value=max_weight)
         self.total_turnover = cp.Parameter(value=total_turnover)
@@ -129,19 +148,25 @@ class portfolio:
         self.n_sectors = cp.Parameter(nonneg=True, value=n_sectors)
         # No change parameters
         self.eps = cp.Parameter(nonneg=True, value=eps)
+        self.printouts = cp.Parameter(value=printouts)
         self.sector_abs_weight = cp.Parameter(nonneg=True, value=sector_abs_weight)
         self.solver = solver
         self.number_gates = cp.Parameter(nonneg=True, value=number_gates)
-
+        self.pass_file = cp.Parameter(value=pass_file)
+        self.assets_on = assets_on
+        self.assets = assets
     def generate_weights(
         self,
     ):
         start = time.perf_counter()
-        temp = np.load(file_weights)
-
+        if not self.pass_file.value:
+            temp = np.load(file_weights_long)
+            on_off = temp["y"]
+            delta = temp["z"]
+        else:
+            on_off = self.assets_on
+            delta = self.assets
         # weights = temp["x"]
-        on_off = temp["y"]
-        delta = temp["z"]
         weights = delta[
             self.day.value - 1: self.day.value + self.number_gates.value - 1,
             :,
@@ -158,7 +183,8 @@ class portfolio:
         weights_one = day_weights[0, :]
         weights_two = day_weights[1, :]
         end = time.perf_counter()
-        print(f"load time: {end - start:.4f} seconds")
+        if self.printouts.value == True:
+            print(f"load time: {end - start:.4f} seconds")
 
         # x = cp.Variable(2 * weights_one.shape[0] + 1, name="x")
         x = cp.Variable(
@@ -221,8 +247,8 @@ class portfolio:
         return lb_stocks, ub_stocks, self.all_pos, self.all_neg, self.force_zero
 
     def create_sectors(self, weights_two):
-        with h5py.File(file_sectors, "r") as f:
-            dataset_name = list(f.keys())[0]
+        with h5py.File(all_attributes, "r") as f:
+            dataset_name = list(f.keys())[self.day.value]
 
             dataset = f[dataset_name]
 
@@ -483,22 +509,29 @@ class portfolio:
         start_time = time.perf_counter()
         problem.solve(**opts)
         end_time = time.perf_counter()
-        print(f"Solver time: {end_time - start_time:.4f} seconds")
-        if problem.status == "optimal":
-            optimize_weights = x
-            gate_a = z
-            print("Status:", problem.status)
-            print("Optimal objective value:", problem.value)
-            self.print_details(
-                optimize_weights,
-                weights_two,
-                all_pos,
-                all_neg,
-                sector_weights,
-            )
+        if self.printouts.value == True:
+            print(f"Solver time: {end_time - start_time:.4f} seconds")
+            if problem.status == "optimal":
+                optimize_weights = x
+                gate_a = z
+                print("Status:", problem.status)
+                print("Optimal objective value:", problem.value)
+                self.print_details(
+                    optimize_weights,
+                    weights_two,
+                    all_pos,
+                    all_neg,
+                    sector_weights,
+                )
+            else:
+                print("optimization failed.")
+                return None, None
         else:
-            print("optimization failed.")
-            return None, None
+            if problem.status == "optimal":
+                optimize_weights = x
+                gate_a = z
+            else:
+                return None, None
 
         return optimize_weights, gate_a
 
