@@ -4,6 +4,8 @@ import math
 import operator
 import random
 import time
+import logging
+import sys
 
 import cvxpy as cp
 import numpy as np
@@ -18,7 +20,21 @@ file_weights_long = BASE_DIR / "arr.npz"
 file_sectors = BASE_DIR / "sector.h5"
 data_file_path = BASE_DIR / "optimized_portfolio.npz"
 all_attributes = BASE_DIR / "hrs1.h5"
+no_gating_a = BASE_DIR / "no_gating_assets.npz"
 
+#Logger setup
+logger = logging.getLogger("Optimizer")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.terminator = ""
+
+formatter = logging.Formatter("\r[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+#normalizing weights and applying masks --> creates data file with raw turnovers, sectors, etc
 def create_data_file(save : bool = False, num_attributes: int = 30):
     data = np.load(file_weights_long)
     y = data["y"].astype(bool)
@@ -43,7 +59,6 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
     weights_prev = np.zeros_like(weights)
     weights_prev[1:] = weights[:-1]
 
-    # Apply Day N mask to Day N-1 raw weights!
     w_prev = np.where(y_3d, weights_prev, 0.0)
 
     sum_prev = np.sum(np.abs(w_prev), axis=1, keepdims=True)
@@ -74,7 +89,7 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
     result["count"] = counts.squeeze(axis=1)
 
     turnover = np.sum(np.abs(final_w_curr - final_w_prev), axis=1)
-    turnover[0] = 0.0  # Zero out the first day since there is no day -1
+    turnover[0] = 0.0
     result["total turnover"] = turnover
 
 
@@ -89,21 +104,40 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
         np.savez(data_file_path, result=result)
 
     return result
-
-def loop_optimization(num_days: int = 30):
+# #2735 is distance to 2026
+def loop_optimization(
+    num_days: int = 2735,
+    log_every: int = 10,
+):
     temp = np.load(file_weights_long)
     on_off = temp["y"]
     delta = temp["z"]
+
+    port = portfolio(max_weight=0.04, individual_turnover=0.02, total_turnover=0.6, pass_file=True, assets_on=on_off, assets=delta, printouts=False, alpha_on=False)
+
     start_time = time.perf_counter()
-    port = portfolio(pass_file=True, assets_on=on_off, assets=delta, printouts=False)
-    for current_day in range(1, num_days):
-        for current_speed in range(0, 5, 2):
+    total_optimizations = (num_days) * 3
+    optimizations_completed = 0
+
+    raw_weights = np.empty((num_days * 3, on_off.shape[1]))
+    for current_day in range(1, num_days ):
+        for current_speed in range(3):
             port.speed.value = current_speed
             port.day.value = current_day
-            port.run_optimize()
+            optimized_weights, gate_a = port.run_optimize()
+            if optimized_weights is not None:
+                raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
+            else:
+                raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
+            optimizations_completed += 1
+            if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1: logger.info(f"Optimizations completed: {optimizations_completed} /{total_optimizations}")
+
     end_time = time.perf_counter()
-    print(f"Optimization completed over {num_days * 3} portfolios: {num_days} days, {3} speeds")
-    print(f"Total time: {end_time - start_time:.4f} seconds")
+    console_handler.terminator = "\n"
+    print()
+    logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
+    np.savez(no_gating_a, result=raw_weights)
+    return raw_weights
 
 def timer(func):
     @functools.wraps(func)
@@ -126,7 +160,7 @@ class portfolio:
         day: int = 1,
         speed: int = 0,
         alpha: float = 1,
-        n_sectors: int = 20,
+        n_sectors: int = 30,
         eps: float = 1e-8,
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
@@ -135,6 +169,8 @@ class portfolio:
         pass_file: bool = False,
         assets_on: np.ndarray = None,
         assets: np.ndarray = None,
+        alpha_on: bool = True,
+        mask: np.ndarray = None,
     ) -> None:
 
         # Parameters subject to change
@@ -155,6 +191,8 @@ class portfolio:
         self.pass_file = cp.Parameter(value=pass_file)
         self.assets_on = assets_on
         self.assets = assets
+        self.alpha_on = cp.Parameter(value=alpha_on)
+
     def generate_weights(
         self,
     ):
@@ -172,7 +210,8 @@ class portfolio:
             :,
             self.speed.value,
         ]
-        day_on_off = on_off[self.day.value]
+        day_on_off = on_off[self.day.value].astype(bool)
+        self.mask = day_on_off                          # plain numpy array, not cp.Parameter
         day_weights = weights[:, day_on_off]
         day_weights[np.isnan(day_weights)] = 0
 
@@ -253,7 +292,7 @@ class portfolio:
             dataset = f[dataset_name]
 
             sector_weights = dataset[
-                1 : self.n_sectors.value + 1, : self.current_weights.shape[0]
+                -self.n_sectors.value:, : self.current_weights.shape[0]
             ]
 
         column_sum = sector_weights.sum(axis=0, keepdims=True)
@@ -385,7 +424,6 @@ class portfolio:
                 # sum_v,
                 # positive_v,
                 total_turnover_cons,
-                alpha_cons,
                 force_zero_condition,
             ]
             constraints = functools.reduce(operator.add, constraints)
@@ -402,6 +440,9 @@ class portfolio:
                 total_turnover_cons,
                 alpha_cons,
             ]
+            constraints = functools.reduce(operator.add, constraints)
+        if self.alpha_on.value:
+            constraints.append(alpha_cons)
             constraints = functools.reduce(operator.add, constraints)
 
         return constraints, sector_weights
@@ -501,10 +542,16 @@ class portfolio:
             ub_stocks,
         )
         opts = self.generate_opt(self.solver)
-        problem = cp.Problem(
-            cp.Minimize(self.objective(x, z, weights_one, weights_two)),
-            constraints,
-        )
+        if not self.alpha_on.value:
+            problem = cp.Problem(
+                cp.Minimize(self.objective(x, z, weights_one, weights_two)),
+                constraints,
+            )
+        else:
+            problem = cp.Problem(
+                cp.Minimize(self.objective(x, z, weights_one, weights_two)),
+                constraints,
+            )
 
         start_time = time.perf_counter()
         problem.solve(**opts)
