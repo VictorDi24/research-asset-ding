@@ -1,3 +1,4 @@
+import argparse
 import functools
 import h5py
 import math
@@ -15,7 +16,7 @@ from scipy import stats
 from pathlib import Path
 
 
-warnings.filterwarnings("error", category=RuntimeWarning)
+#warnings.filterwarnings("error", category=RuntimeWarning)
 
 random.seed(21)
 BASE_DIR = Path(__file__).resolve().parent
@@ -109,7 +110,6 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
 
     with h5py.File(all_attributes, "r") as f:
         arr = weights[:len(sorted(f.keys()))]
-        breakpoint()
         for k, (key, value, mask) in enumerate(zip(sorted(f.keys()), arr, y)):
             renewed_weights = value[mask]
             result["attribute exposures"][k] = f[key][1:201] @ renewed_weights
@@ -919,6 +919,21 @@ cases = {
             "save_filename": BASE_DIR / "results_case_a.npz"
         }
     ),
+    "case_a_full": (
+        loop_optimization,
+        {
+            "num_days": 2735,
+            "log_every": 100,
+            "portfolio_class": portfolio,
+            "portfolio_kwargs": {
+                "max_weight": 0.04,
+                "individual_turnover": 0.02,
+                "total_turnover": 0.6,
+            },
+            "save_filename": BASE_DIR / "results_case_a_full.npz"
+
+        }
+    )
 }
 
 def run_case(cases_dict: dict, case_name: str):
@@ -926,17 +941,122 @@ def run_case(cases_dict: dict, case_name: str):
     if case_name not in cases_dict:
         raise ValueError(f"Case '{case_name}' not found. Available cases: {list(cases_dict.keys())}")
 
-    logger.info(f"--- Starting {case_name} ---")
+    logger.info(f"Starting {case_name}")
 
     func, kwargs = cases_dict[case_name]
     result = func(**kwargs)
-    logger.info(f"--- Finished {case_name} ---\n")
+    logger.info(f"Finished {case_name}\n")
     return result
 
-if __name__ == "__main__":
-    target_case = "case_a_base"
+def main():
+    parser = argparse.ArgumentParser(
+        description="Portfolio Optimization CLI",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
 
-    optimized_weights = run_case(cases, target_case)
+    # 1. Case Selection
+    _ = parser.add_argument(
+        "-c", "--case",
+        type=str,
+        help="Name of the case to run (e.g., 'case_a_base')."
+    )
+
+    # 2. Utility Flags
+    _ = parser.add_argument(
+        "--list-cases",
+        action="store_true",
+        help="List all available cases and exit."
+    )
+
+    # 3. Execution Overrides (Top-level loop parameters)
+    _ = parser.add_argument(
+        "--num-days",
+        type=int,
+        default=None,
+        help="Override the number of days to run (useful for quick tests)."
+    )
+    _ = parser.add_argument(
+        "--log-every",
+        type=int,
+        default=None,
+        help="Override logging frequency."
+    )
+    _ = parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default=None,
+        help="Override the output save path (e.g., 'my_custom_run.npz')."
+    )
+
+    # 4. Portfolio Parameter Overrides (Nested parameters)
+    _ = parser.add_argument(
+        "--turnover",
+        type=float,
+        default=None,
+        help="Override 'total_turnover' inside portfolio_kwargs."
+    )
+
+    args = parser.parse_args()
+
+    # --- Handle --list-cases ---
+    if args.list_cases:
+        print("\nAvailable Cases:")
+        print("-" * 60)
+        for name, (_, config) in cases.items():
+            p_class = config.get("portfolio_class", portfolio).__name__
+            days = config.get("num_days", 2735)
+            print(f" • {name:<25} | Class: {p_class:<15} | Days: {days}")
+        print("-" * 60)
+        sys.exit(0)
+
+    # --- Validate case argument ---
+    if not args.case:
+        parser.error("the following arguments are required: -c/--case (or use --list-cases)")
+
+    if args.case not in cases:
+        print(f"\n[ERROR] Case '{args.case}' not found.")
+        print("Use --list-cases to see available options.")
+        sys.exit(1)
+
+    # --- Extract function and kwargs ---
+    func, kwargs = cases[args.case]
+
+    # --- Apply CLI overrides ---
+    if args.num_days is not None:
+        kwargs["num_days"] = args.num_days
+    if args.log_every is not None:
+        kwargs["log_every"] = args.log_every
+    if args.output is not None:
+        # Ensure the directory exists if a custom path is provided
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        kwargs["save_filename"] = str(out_path)
+
+    # Drill down into nested portfolio_kwargs if needed
+    if args.turnover is not None:
+        kwargs.setdefault("portfolio_kwargs", {})["total_turnover"] = args.turnover
+
+    # --- Execute ---
+    logger.info(f"--- CLI Execution: Starting {args.case} ---")
+    start_time = time.perf_counter()
+
+    result = func(**kwargs)
+
+    end_time = time.perf_counter()
+    logger.info(f"--- CLI Execution: Finished {args.case} in {end_time - start_time:.2f}s ---")
+
+    # Quick terminal feedback
+    nan_count = np.isnan(result[0]).sum()
+    logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
+
+if __name__ == "__main__":
+    main()
+
+# #Auto run
+# if __name__ == "__main__":
+#     target_case = "case_a_base"
+
+#     optimized_weights = run_case(cases, target_case)
 
     # print(f"Shape of returned weights: {optimized_weights.shape}")
     # print(f"Total NaNs (failed optimizations): {np.isnan(optimized_weights).sum()}")
