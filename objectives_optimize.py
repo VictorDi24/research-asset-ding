@@ -6,12 +6,16 @@ import random
 import time
 import logging
 import sys
+import warnings
 
 import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
 from scipy import stats
 from pathlib import Path
+
+
+warnings.filterwarnings("error", category=RuntimeWarning)
 
 random.seed(21)
 BASE_DIR = Path(__file__).resolve().parent
@@ -24,15 +28,25 @@ no_gating_a = BASE_DIR / "no_gating_assets.npz"
 
 #Logger setup
 logger = logging.getLogger("Optimizer")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logger.propagate = False
 
 console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
 console_handler.terminator = ""
-
-formatter = logging.Formatter("\r[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
-console_handler.setFormatter(formatter)
+console_handler.setFormatter(
+    logging.Formatter("\r[%(asctime)s] %(message)s", datefmt="%H:%M:%S")
+)
 logger.addHandler(console_handler)
+
+# File: normal, one line per entry
+file_handler = logging.FileHandler(BASE_DIR / "optimizer_debug.log", mode="w")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+)
+logger.addHandler(file_handler)
+
 
 #normalizing weights and applying masks --> creates data file with raw turnovers, sectors, etc
 def create_data_file(save : bool = False, num_attributes: int = 30):
@@ -104,40 +118,7 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
         np.savez(data_file_path, result=result)
 
     return result
-# #2735 is distance to 2026
-def loop_optimization(
-    num_days: int = 2735,
-    log_every: int = 10,
-):
-    temp = np.load(file_weights_long)
-    on_off = temp["y"]
-    delta = temp["z"]
 
-    port = portfolio(max_weight=0.04, individual_turnover=0.02, total_turnover=0.6, pass_file=True, assets_on=on_off, assets=delta, printouts=False, alpha_on=False)
-
-    start_time = time.perf_counter()
-    total_optimizations = (num_days) * 3
-    optimizations_completed = 0
-
-    raw_weights = np.empty((num_days * 3, on_off.shape[1]))
-    for current_day in range(1, num_days ):
-        for current_speed in range(3):
-            port.speed.value = current_speed
-            port.day.value = current_day
-            optimized_weights, gate_a = port.run_optimize()
-            if optimized_weights is not None:
-                raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
-            else:
-                raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
-            optimizations_completed += 1
-            if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1: logger.info(f"Optimizations completed: {optimizations_completed} /{total_optimizations}")
-
-    end_time = time.perf_counter()
-    console_handler.terminator = "\n"
-    print()
-    logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
-    np.savez(no_gating_a, result=raw_weights)
-    return raw_weights
 
 def timer(func):
     @functools.wraps(func)
@@ -215,7 +196,8 @@ class portfolio:
         day_weights = weights[:, day_on_off]
         day_weights[np.isnan(day_weights)] = 0
 
-        day_weights /= abs(day_weights).sum(axis=1, keepdims=True)
+        row_sums = abs(day_weights).sum(axis=1, keepdims=True)
+        day_weights /= np.where(row_sums == 0, 1, row_sums)
         day_weights -= day_weights.mean(axis=1, keepdims=True)
         day_weights *= 2
 
@@ -578,8 +560,10 @@ class portfolio:
                 optimize_weights = x
                 gate_a = z
             else:
+                logger.debug(
+                    f"day={self.day.value} speed={self.speed.value} solver_status={problem.status}"
+                )
                 return None, None
-
         return optimize_weights, gate_a
 
 
@@ -857,6 +841,145 @@ class huber_berhu(huber_penalty, berhu_penalty):
                     self.s + self.t + self.t**2 / (2 * self.threshold_berhu.value)
                 )
                 print(f"berhu penalty: {berhu_val:.6f}")
+
+
+def loop_optimization(
+    num_days: int = 2735,
+    log_every: int = 100,
+    portfolio_class=portfolio,
+    portfolio_kwargs=None,
+    save_filename: str = None,
+):
+    if portfolio_kwargs is None:
+        portfolio_kwargs = {}
+
+    temp = np.load(file_weights_long)
+    on_off = temp["y"]
+    delta = temp["z"]
+
+    # Inject required arguments for file passing to keep the cases dictionary clean
+    portfolio_kwargs.setdefault("pass_file", True)
+    portfolio_kwargs.setdefault("assets_on", on_off)
+    portfolio_kwargs.setdefault("assets", delta)
+    portfolio_kwargs.setdefault("printouts", False)
+    portfolio_kwargs.setdefault("alpha_on", False)
+
+    # Instantiate the specific portfolio class dynamically
+    port = portfolio_class(**portfolio_kwargs)
+
+    start_time = time.perf_counter()
+    total_optimizations = num_days * 3
+    optimizations_completed = 0
+
+    raw_weights = np.zeros((num_days * 3, on_off.shape[1]))
+    for current_day in range(1, num_days):
+        for current_speed in range(3):
+            port.speed.value = current_speed
+            port.day.value = current_day
+            iter_start = time.perf_counter()
+
+            # run_optimize() correctly returns optimized_weights, gate_a for all subclasses
+            optimized_weights, gate_a = port.run_optimize()
+            iter_time = time.perf_counter() - iter_start
+
+            if optimized_weights is not None:
+                raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
+            else:
+                raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
+                logger.debug(f"day={current_day} speed={current_speed} status=FAILED time={iter_time:.4f}s")
+
+            optimizations_completed += 1
+            if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1:
+                logger.info(f"Optimizations completed: {optimizations_completed} / {total_optimizations}")
+
+    end_time = time.perf_counter()
+    console_handler.terminator = "\n"
+    print()
+    logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
+
+    if save_filename:
+        np.savez(save_filename, result=raw_weights)
+    else:
+        np.savez(no_gating_a, result=raw_weights)
+
+    return raw_weights
+
+cases = {
+    "case_a_base": (
+        loop_optimization,
+        {
+            "num_days": 30,
+            "log_every": 10,
+            "portfolio_class": portfolio,
+            "portfolio_kwargs": {
+                "max_weight": 0.04,
+                "individual_turnover": 0.02,
+                "total_turnover": 0.6,
+            },
+            "save_filename": BASE_DIR / "results_case_a.npz"
+        }
+    ),
+}
+
+def run_case(cases_dict: dict, case_name: str):
+
+    if case_name not in cases_dict:
+        raise ValueError(f"Case '{case_name}' not found. Available cases: {list(cases_dict.keys())}")
+
+    logger.info(f"--- Starting {case_name} ---")
+
+    func, kwargs = cases_dict[case_name]
+    result = func(**kwargs)
+    logger.info(f"--- Finished {case_name} ---\n")
+    return result
+
+if __name__ == "__main__":
+    target_case = "case_a_base"
+
+    optimized_weights = run_case(cases, target_case)
+
+    # print(f"Shape of returned weights: {optimized_weights.shape}")
+    # print(f"Total NaNs (failed optimizations): {np.isnan(optimized_weights).sum()}")
+
+#NOTE: Incompatible with dictionary
+# # #2735 is distance to 2026
+# def loop_optimization(
+#     num_days: int = 2735,
+#     log_every: int = 100,
+# ):
+#     temp = np.load(file_weights_long)
+#     on_off = temp["y"]
+#     delta = temp["z"]
+
+#     port = portfolio(max_weight=0.04, individual_turnover=0.02, total_turnover=0.6, pass_file=True, assets_on=on_off, assets=delta, printouts=False, alpha_on=False)
+
+#     start_time = time.perf_counter()
+#     total_optimizations = (num_days) * 3
+#     optimizations_completed = 0
+
+#     raw_weights = np.zeros((num_days * 3, on_off.shape[1]))
+#     for current_day in range(1, num_days ):
+#         for current_speed in range(3):
+#             port.speed.value = current_speed
+#             port.day.value = current_day
+#             iter_start = time.perf_counter()
+#             optimized_weights, gate_a = port.run_optimize()
+#             iter_time = time.perf_counter() - iter_start
+#             if optimized_weights is not None:
+#                 raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
+#                 logger.debug(f"day={current_day} speed={current_speed} status=optimal time={iter_time:.4f}s")
+#             else:
+#                 raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
+#                 logger.debug(f"day={current_day} speed={current_speed} status=FAILED time={iter_time:.4f}s")
+#             optimizations_completed += 1
+#             if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1: logger.info(f"Optimizations completed: {optimizations_completed} /{total_optimizations}")
+
+#     end_time = time.perf_counter()
+#     console_handler.terminator = "\n"
+#     print()
+#     logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
+#     np.savez(no_gating_a, result=raw_weights)
+#     return raw_weights
 
     # def berhu_function(self, x: cp.Variable, weights_one):
     #     abs_diff = np.abs(x - weights_one)
