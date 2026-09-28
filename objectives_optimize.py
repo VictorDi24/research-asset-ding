@@ -12,6 +12,8 @@ import warnings
 import cvxpy as cp
 import numpy as np
 import scipy.sparse as sp
+from bisect import bisect_right
+from datetime import datetime
 from scipy import stats
 from pathlib import Path
 
@@ -842,9 +844,39 @@ class huber_berhu(huber_penalty, berhu_penalty):
                 )
                 print(f"berhu penalty: {berhu_val:.6f}")
 
+#----Finding specific day index----
+# Converts key into date string
+def _key_to_date(key: str) -> str:
+    return key.split("_")[-1]
+
+#imput format: year-month-day
+def find_day_index(day: str | datetime) -> int:
+    if isinstance(day, str):
+        date_str = day.replace("-", "")
+    else:
+        date_str = day.strftime("%Y%m%d")
+
+    with h5py.File(all_attributes, "r") as f:
+        keys = sorted(f.keys())
+        dates = [_key_to_date(k) for k in keys]
+    pos = bisect_right(dates, date_str)
+    if pos == 0:
+        logger.warning(
+                    f"{date_str} predates earliest key {keys[0]}; "
+                    f"using first available date"
+                )
+    idx = max(pos - 1, 0)
+    matched = keys[idx]
+    if dates[idx] != date_str:
+        # fall back to the previous available date
+        logger.warning(
+            f"No exact key for {date_str}; using previous available date {matched}"
+        )
+    return idx, matched
 
 def loop_optimization(
-    num_days: int = 2735,
+    start_day: str = "beginning",
+    end_day: str = "end",
     log_every: int = 100,
     portfolio_class=portfolio,
     portfolio_kwargs=None,
@@ -852,6 +884,16 @@ def loop_optimization(
 ):
     if portfolio_kwargs is None:
         portfolio_kwargs = {}
+
+    begin = 1
+    end = 2900
+
+    if start_day != "beginning":
+        begin = find_day_index(start_day)[0]
+    if end_day != "end":
+        end = find_day_index(end_day)[0]
+
+    num_days = end - begin + 1
 
     temp = np.load(file_weights_long)
     on_off = temp["y"]
@@ -871,8 +913,8 @@ def loop_optimization(
     total_optimizations = num_days * 3
     optimizations_completed = 0
 
-    raw_weights = np.zeros((num_days * 3, on_off.shape[1]))
-    for current_day in range(1, num_days):
+    raw_weights = np.zeros((num_days, on_off.shape[1], 3))
+    for current_day in range(begin, end + 1):
         for current_speed in range(3):
             port.speed.value = current_speed
             port.day.value = current_day
@@ -883,9 +925,9 @@ def loop_optimization(
             iter_time = time.perf_counter() - iter_start
 
             if optimized_weights is not None:
-                raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
+                raw_weights[current_day - begin, :, current_speed][port.mask] = optimized_weights.value
             else:
-                raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
+                raw_weights[current_day - begin, :, current_speed][port.mask] = np.nan
                 logger.debug(f"day={current_day} speed={current_speed} status=FAILED time={iter_time:.4f}s")
 
             optimizations_completed += 1
@@ -908,7 +950,8 @@ cases = {
     "case_a_base": (
         loop_optimization,
         {
-            "num_days": 30,
+            "start_day": "2015-02-01",
+            "end_day": "2015-03-04",
             "log_every": 10,
             "portfolio_class": portfolio,
             "portfolio_kwargs": {
@@ -922,7 +965,7 @@ cases = {
     "case_a_full": (
         loop_optimization,
         {
-            "num_days": 2735,
+            "begin_day": "2015-2-20",
             "log_every": 100,
             "portfolio_class": portfolio,
             "portfolio_kwargs": {
@@ -954,21 +997,21 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    # 1. Case Selection
+    # Case Selection
     _ = parser.add_argument(
         "-c", "--case",
         type=str,
         help="Name of the case to run (e.g., 'case_a_base')."
     )
 
-    # 2. Utility Flags
+    # Utility Flags
     _ = parser.add_argument(
         "--list-cases",
         action="store_true",
         help="List all available cases and exit."
     )
 
-    # 3. Execution Overrides (Top-level loop parameters)
+    # Execution Overrides
     _ = parser.add_argument(
         "--num-days",
         type=int,
@@ -988,7 +1031,7 @@ def main():
         help="Override the output save path (e.g., 'my_custom_run.npz')."
     )
 
-    # 4. Portfolio Parameter Overrides (Nested parameters)
+    # Portfolio Parameter Overrides
     _ = parser.add_argument(
         "--turnover",
         type=float,
@@ -1036,7 +1079,7 @@ def main():
     if args.turnover is not None:
         kwargs.setdefault("portfolio_kwargs", {})["total_turnover"] = args.turnover
 
-    # --- Execute ---
+    # ---- Execute ----
     logger.info(f"--- CLI Execution: Starting {args.case} ---")
     start_time = time.perf_counter()
 
@@ -1048,9 +1091,12 @@ def main():
     # Quick terminal feedback
     nan_count = np.isnan(result[0]).sum()
     logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
+    return result
 
-if __name__ == "__main__":
-    main()
+
+
+# if __name__ == "__main__":
+#     main()
 
 # #Auto run
 # if __name__ == "__main__":
