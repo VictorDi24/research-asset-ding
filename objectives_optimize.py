@@ -348,9 +348,14 @@ class portfolio:
     #     return sum_v, positive_v
 
     def total_turnover_direct_constraint(self, x, z, weights_one):
-        total_turnover_constraint = [
-            cp.sum(cp.abs(x - weights_one)) <= self.total_turnover + z[0]
-        ]
+        if self.alpha_on:
+            total_turnover_constraint = [
+                cp.sum(cp.abs(x - weights_one)) <= self.total_turnover + z[0]
+            ]
+        else:
+            total_turnover_constraint = [
+                cp.sum(cp.abs(x - weights_one)) <= self.total_turnover
+            ]
         return total_turnover_constraint
 
     def alpha_constraint(self, z):
@@ -422,7 +427,6 @@ class portfolio:
                 # sum_v,
                 # positive_v,
                 total_turnover_cons,
-                alpha_cons,
             ]
             constraints = functools.reduce(operator.add, constraints)
         if self.alpha_on.value:
@@ -545,6 +549,7 @@ class portfolio:
             if problem.status == "optimal":
                 optimize_weights = x
                 gate_a = z
+
                 print("Status:", problem.status)
                 print("Optimal objective value:", problem.value)
                 self.print_details(
@@ -738,6 +743,7 @@ class berhu_penalty(portfolio):
         if problem.status == "optimal":
             optimize_weights = x
             gate_a = z
+
             print("Status:", problem.status)
             self.print_details(
                 optimize_weights,
@@ -958,6 +964,7 @@ cases = {
                 "max_weight": 0.04,
                 "individual_turnover": 0.02,
                 "total_turnover": 0.6,
+                "alpha_on": False
             },
             "save_filename": BASE_DIR / "results_case_a.npz"
         }
