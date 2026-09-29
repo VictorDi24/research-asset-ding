@@ -877,6 +877,8 @@ def find_day_index(day: str | datetime):
         logger.warning(
             f"No exact key for {date_str}; using previous available date {matched}"
         )
+        pos += 1
+
     return pos, matched
 
 def loop_optimization(
@@ -960,7 +962,7 @@ cases = {
     "case_a_base": (
         loop_optimization,
         {
-            "start_day": "2026-07-08",
+            "start_day": "2026-07-01",
             # "end_day": "2015-03-04",
             "log_every": 10,
             "portfolio_class": portfolio,
