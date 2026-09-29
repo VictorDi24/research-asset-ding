@@ -1,5 +1,6 @@
 import argparse
 import functools
+from cvxpy.settings import INT_IDX
 import h5py
 import math
 import operator
@@ -415,7 +416,6 @@ class portfolio:
                 total_turnover_cons,
                 force_zero_condition,
             ]
-            constraints = functools.reduce(operator.add, constraints)
         else:
             constraints = [
                 sector_cons,
@@ -428,10 +428,9 @@ class portfolio:
                 # positive_v,
                 total_turnover_cons,
             ]
-            constraints = functools.reduce(operator.add, constraints)
         if self.alpha_on.value:
             constraints.append(alpha_cons)
-            constraints = functools.reduce(operator.add, constraints)
+        constraints = functools.reduce(operator.add, constraints)
 
         return constraints, sector_weights
 
@@ -856,7 +855,7 @@ def _key_to_date(key: str) -> str:
     return key.split("_")[-1]
 
 #imput format: year-month-day
-def find_day_index(day: str | datetime) -> int:
+def find_day_index(day: str | datetime):
     if isinstance(day, str):
         date_str = day.replace("-", "")
     else:
@@ -865,20 +864,20 @@ def find_day_index(day: str | datetime) -> int:
     with h5py.File(all_attributes, "r") as f:
         keys = sorted(f.keys())
         dates = [_key_to_date(k) for k in keys]
-    pos = bisect_right(dates, date_str)
-    if pos == 0:
+    pos = bisect_right(dates, date_str) - 1
+    if pos <= 0:
         logger.warning(
-                    f"{date_str} predates earliest key {keys[0]}; "
-                    f"using first available date"
-                )
-    idx = max(pos - 1, 0)
-    matched = keys[idx]
-    if dates[idx] != date_str:
+            f"{date_str} predates earliest feasible day {keys[0]}; "
+            f"using first feasible date"
+        )
+        pos = 1
+    matched = keys[pos]
+    if dates[pos] != date_str:
         # fall back to the previous available date
         logger.warning(
             f"No exact key for {date_str}; using previous available date {matched}"
         )
-    return idx, matched
+    return pos, matched
 
 def loop_optimization(
     start_day: str = "beginning",
@@ -886,24 +885,30 @@ def loop_optimization(
     log_every: int = 100,
     portfolio_class=portfolio,
     portfolio_kwargs=None,
-    save_filename: str = None,
+    save_filename: str | None = None,
 ):
     if portfolio_kwargs is None:
         portfolio_kwargs = {}
-
-    begin = 1
-    end = 2900
-
-    if start_day != "beginning":
-        begin = find_day_index(start_day)[0]
-    if end_day != "end":
-        end = find_day_index(end_day)[0]
-
-    num_days = end - begin + 1
+    portfolio_kwargs = dict(portfolio_kwargs)
 
     temp = np.load(file_weights_long)
     on_off = temp["y"]
     delta = temp["z"]
+
+    begin = 1
+    end = delta.shape[0]
+
+    if start_day != "beginning":
+        begin = find_day_index(start_day)[0]
+    if end_day != "end":
+        end = find_day_index(end_day)[0] + 1
+
+    # begin = max(1, min(begin, delta.shape[0] - 1))
+    # end   = max(1, min(end,   delta.shape[0] - 1))
+
+    num_days = end - begin
+
+    turnover_values = np.zeros((num_days, 3))
 
     # Inject required arguments for file passing to keep the cases dictionary clean
     portfolio_kwargs.setdefault("pass_file", True)
@@ -916,11 +921,11 @@ def loop_optimization(
     port = portfolio_class(**portfolio_kwargs)
 
     start_time = time.perf_counter()
-    total_optimizations = num_days * 3
+    total_optimizations = (num_days) * 3
     optimizations_completed = 0
 
     raw_weights = np.zeros((num_days, on_off.shape[1], 3))
-    for current_day in range(begin, end + 1):
+    for current_day in range(begin, end):
         for current_speed in range(3):
             port.speed.value = current_speed
             port.day.value = current_day
@@ -931,33 +936,32 @@ def loop_optimization(
             iter_time = time.perf_counter() - iter_start
 
             if optimized_weights is not None:
-                raw_weights[current_day - begin, :, current_speed][port.mask] = optimized_weights.value
+                turnover_values[current_day - begin, current_speed] = np.sum(np.abs(optimized_weights.value - port.current_weights.value))
+                raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
             else:
-                raw_weights[current_day - begin, :, current_speed][port.mask] = np.nan
-                logger.debug(f"day={current_day} speed={current_speed} status=FAILED time={iter_time:.4f}s")
+                raw_weights[current_day - begin, port.mask, current_speed] = np.nan
+                logger.warning(f"FAILED day={current_day} speed={current_speed} time={iter_time:.4f}s")
 
             optimizations_completed += 1
-            if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1:
+            if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations:
                 logger.info(f"Optimizations completed: {optimizations_completed} / {total_optimizations}")
 
     end_time = time.perf_counter()
     console_handler.terminator = "\n"
     print()
     logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
+    console_handler.terminator = "\n"
 
     if save_filename:
-        np.savez(save_filename, result=raw_weights)
-    else:
-        np.savez(no_gating_a, result=raw_weights)
-
-    return raw_weights
+        np.savez(save_filename, result=raw_weights, turnover=turnover_values)
+    return raw_weights, turnover_values
 
 cases = {
     "case_a_base": (
         loop_optimization,
         {
-            "start_day": "2015-02-01",
-            "end_day": "2015-03-04",
+            "start_day": "2026-07-08",
+            # "end_day": "2015-03-04",
             "log_every": 10,
             "portfolio_class": portfolio,
             "portfolio_kwargs": {
@@ -972,13 +976,13 @@ cases = {
     "case_a_full": (
         loop_optimization,
         {
-            "begin_day": "2015-2-20",
             "log_every": 100,
             "portfolio_class": portfolio,
             "portfolio_kwargs": {
                 "max_weight": 0.04,
                 "individual_turnover": 0.02,
                 "total_turnover": 0.6,
+                "alpha_on": True
             },
             "save_filename": BASE_DIR / "results_case_a_full.npz"
 
@@ -994,7 +998,7 @@ def run_case(cases_dict: dict, case_name: str):
     logger.info(f"Starting {case_name}")
 
     func, kwargs = cases_dict[case_name]
-    result = func(**kwargs)
+    result, turnover_values = func(**kwargs)
     logger.info(f"Finished {case_name}\n")
     return result
 
@@ -1090,7 +1094,7 @@ def main():
     logger.info(f"--- CLI Execution: Starting {args.case} ---")
     start_time = time.perf_counter()
 
-    result = func(**kwargs)
+    result, turnover_values = func(**kwargs)
 
     end_time = time.perf_counter()
     logger.info(f"--- CLI Execution: Finished {args.case} in {end_time - start_time:.2f}s ---")
@@ -1098,12 +1102,10 @@ def main():
     # Quick terminal feedback
     nan_count = np.isnan(result[0]).sum()
     logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
-    return result
+    return result, turnover_values
 
-
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
 
 # #Auto run
 # if __name__ == "__main__":
