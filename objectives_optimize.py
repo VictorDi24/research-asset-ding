@@ -23,6 +23,9 @@ from pathlib import Path
 
 random.seed(21)
 BASE_DIR = Path(__file__).resolve().parent
+results_folder = BASE_DIR / "results_folder"
+results_folder.mkdir(parents=True, exist_ok=True)
+
 file_weights = BASE_DIR / "short_arr_a.npz"
 file_weights_long = BASE_DIR / "arr.npz"
 file_sectors = BASE_DIR / "sector.h5"
@@ -176,7 +179,9 @@ class portfolio:
         self.assets_on = assets_on
         self.assets = assets
         self.alpha_on = cp.Parameter(value=alpha_on)
-
+        self.correlation = cp.Parameter(value = None)
+        self.tracking_error = cp.Parameter(value=None)
+        self.below_eps = cp.Parameter(value=None)
     def generate_weights(
         self,
     ):
@@ -349,7 +354,7 @@ class portfolio:
     #     return sum_v, positive_v
 
     def total_turnover_direct_constraint(self, x, z, weights_one):
-        if self.alpha_on:
+        if self.alpha_on.value:
             total_turnover_constraint = [
                 cp.sum(cp.abs(x - weights_one)) <= self.total_turnover + z[0]
             ]
@@ -529,17 +534,17 @@ class portfolio:
             ub_stocks,
         )
         opts = self.generate_opt(self.solver)
-        if not self.alpha_on.value:
+
+        if self.alpha_on.value:
             problem = cp.Problem(
                 cp.Minimize(self.objective(x, z, weights_one, weights_two)),
                 constraints,
             )
         else:
             problem = cp.Problem(
-                cp.Minimize(self.objective(x, z, weights_one, weights_two)),
+                cp.Minimize(self.objective_a(x, weights_two)),
                 constraints,
             )
-
         start_time = time.perf_counter()
         problem.solve(**opts)
         end_time = time.perf_counter()
@@ -548,7 +553,10 @@ class portfolio:
             if problem.status == "optimal":
                 optimize_weights = x
                 gate_a = z
-
+                correlation = stats.pearsonr(optimize_weights.value, weights_two)
+                self.correlation.value = correlation.statistic
+                self.tracking_error.value = ((optimize_weights.value - weights_two) ** 2).sum()
+                self.below_eps.value = (abs(self.weights_one.value - optimize_weights.value) <= self.eps.value).sum()
                 print("Status:", problem.status)
                 print("Optimal objective value:", problem.value)
                 self.print_details(
@@ -565,6 +573,10 @@ class portfolio:
             if problem.status == "optimal":
                 optimize_weights = x
                 gate_a = z
+                correlation = stats.pearsonr(optimize_weights.value, weights_two)
+                self.correlation.value = correlation.statistic
+                self.tracking_error.value = ((optimize_weights.value - weights_two) ** 2).sum()
+                self.below_eps.value = (abs(self.weights_one.value - optimize_weights.value) <= self.eps.value).sum()
             else:
                 logger.debug(
                     f"day={self.day.value} speed={self.speed.value} solver_status={problem.status}"
@@ -738,30 +750,40 @@ class berhu_penalty(portfolio):
         start_time = time.perf_counter()
         problem.solve(**opts)
         end_time = time.perf_counter()
-        print(f"Solver time: {end_time - start_time:.4f} seconds")
-        if problem.status == "optimal":
-            optimize_weights = x
-            gate_a = z
+        if self.printouts.value == True:
+            print(f"Solver time: {end_time - start_time:.4f} seconds")
+            if problem.status == "optimal":
+                optimize_weights = x
+                gate_a = z
 
-            print("Status:", problem.status)
-            self.print_details(
-                optimize_weights,
-                weights_two,
-                self.all_pos,
-                self.all_neg,
-                sector_weights,
-            )
-            print(
-                f"berhu penalty: {self.scale.value * np.sum(s.value + t.value + t.value**2 / (2 * self.threshold.value))}"
-            )
-            print("Optimal objective value:", problem.value)
-            print(f"Solver: {self.solver}")
-            self.s = s.value
-            self.t = t.value
+                print("Status:", problem.status)
+                self.print_details(
+                    optimize_weights,
+                    weights_two,
+                    self.all_pos,
+                    self.all_neg,
+                    sector_weights,
+                )
+                print(
+                    f"berhu penalty: {self.scale.value * np.sum(s.value + t.value + t.value**2 / (2 * self.threshold.value))}"
+                )
+                print("Optimal objective value:", problem.value)
+                print(f"Solver: {self.solver}")
+                self.s = s.value
+                self.t = t.value
 
+            else:
+                print("optimization failed.")
+                return None, None
         else:
-            print("optimization failed.")
-            return None, None
+            if problem.status == "optimal":
+                optimize_weights = x
+                gate_a = z
+            else:
+                logger.debug(
+                    f"day={self.day.value} speed={self.speed.value} solver_status={problem.status}"
+                )
+                return None, None
         return optimize_weights, gate_a
 
 
@@ -849,6 +871,10 @@ class huber_berhu(huber_penalty, berhu_penalty):
                 )
                 print(f"berhu penalty: {berhu_val:.6f}")
 
+#-------------------------
+# ITERATING --------------
+#-------------------------
+
 #----Finding specific day index----
 # Converts key into date string
 def _key_to_date(key: str) -> str:
@@ -911,6 +937,9 @@ def loop_optimization(
     num_days = end - begin
 
     turnover_values = np.zeros((num_days, 3))
+    correlation_values = np.zeros((num_days, 3))
+    tracking_error_values = np.zeros((num_days, 3))
+    below_eps_values = np.zeros((num_days, 3))
 
     # Inject required arguments for file passing to keep the cases dictionary clean
     portfolio_kwargs.setdefault("pass_file", True)
@@ -939,6 +968,9 @@ def loop_optimization(
 
             if optimized_weights is not None:
                 turnover_values[current_day - begin, current_speed] = np.sum(np.abs(optimized_weights.value - port.current_weights.value))
+                correlation_values[current_day - begin, current_speed] = port.correlation.value
+                tracking_error_values[current_day - begin, current_speed] = port.tracking_error.value
+                below_eps_values[current_day - begin, current_speed] = port.below_eps.value
                 raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
             else:
                 raw_weights[current_day - begin, port.mask, current_speed] = np.nan
@@ -955,8 +987,8 @@ def loop_optimization(
     console_handler.terminator = "\n"
 
     if save_filename:
-        np.savez(save_filename, result=raw_weights, turnover=turnover_values)
-    return raw_weights, turnover_values
+        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values)
+    return raw_weights, turnover_values, correlation_values, tracking_error_values
 
 cases = {
     "case_a_base": (
@@ -972,7 +1004,7 @@ cases = {
                 "total_turnover": 0.6,
                 "alpha_on": False
             },
-            "save_filename": BASE_DIR / "results_case_a.npz"
+            "save_filename": results_folder / "results_case_a_base.npz"
         }
     ),
     "case_a_full": (
@@ -986,10 +1018,64 @@ cases = {
                 "total_turnover": 0.6,
                 "alpha_on": True
             },
-            "save_filename": BASE_DIR / "results_case_a_full.npz"
+            "save_filename": results_folder / "results_case_a_full.npz"
 
         }
-    )
+    ),
+    "alpha_a_full": (
+        loop_optimization,
+        {
+            "log_every": 100,
+            "portfolio_class": portfolio,
+            "portfolio_kwargs": {
+                "max_weight": 0.04,
+                "individual_turnover": 0.02,
+                "total_turnover": 0.6,
+                "alpha" : 0.1,
+                "alpha_on": True,
+            },
+            "save_filename": results_folder / "results_alpha_a_full.npz"
+
+        }
+    ),
+    "alpha_b_full": (
+        loop_optimization,
+        {
+            "start_day" : "2015-07-01",
+            "end_day" : "2026-07-01",
+            "log_every": 100,
+            "portfolio_class": portfolio,
+            "portfolio_kwargs": {
+                "max_weight": 0.04,
+                "individual_turnover": 0.02,
+                "total_turnover": 0.6,
+                "alpha" : 0.001,
+                "alpha_on": True,
+            },
+            "save_filename": results_folder / "results_alpha_b_full.npz"
+
+        }
+    ),
+    #Checking infeasible day 1926, speed 1
+    "check_infeasible": (
+        loop_optimization,
+        {
+            "start_day" : "2022-09-11",
+            "end_day" : "2022-09-14",
+            "log_every": 10,
+            "portfolio_class": portfolio,
+            "portfolio_kwargs": {
+                "max_weight": 0.04,
+                "individual_turnover": 0.02,
+                "total_turnover": 0.6,
+                "alpha" : 0.001,
+                "alpha_on": True,
+            },
+            "save_filename": None
+
+        }
+    ),
+
 }
 
 def run_case(cases_dict: dict, case_name: str):
@@ -1000,9 +1086,9 @@ def run_case(cases_dict: dict, case_name: str):
     logger.info(f"Starting {case_name}")
 
     func, kwargs = cases_dict[case_name]
-    result, turnover_values = func(**kwargs)
+    result, turnover_values, correlation_values, tracking_error_values = func(**kwargs)
     logger.info(f"Finished {case_name}\n")
-    return result
+    return result, turnover_values, correlation_values, tracking_error_values
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1025,12 +1111,12 @@ def main():
     )
 
     # Execution Overrides
-    _ = parser.add_argument(
-        "--num-days",
-        type=int,
-        default=None,
-        help="Override the number of days to run (useful for quick tests)."
-    )
+    # _ = parser.add_argument(
+    #     "--num-days",
+    #     type=int,
+    #     default=None,
+    #     help="Override the number of days to run (useful for quick tests)."
+    # )
     _ = parser.add_argument(
         "--log-every",
         type=int,
@@ -1078,8 +1164,6 @@ def main():
     func, kwargs = cases[args.case]
 
     # --- Apply CLI overrides ---
-    if args.num_days is not None:
-        kwargs["num_days"] = args.num_days
     if args.log_every is not None:
         kwargs["log_every"] = args.log_every
     if args.output is not None:
@@ -1096,81 +1180,15 @@ def main():
     logger.info(f"--- CLI Execution: Starting {args.case} ---")
     start_time = time.perf_counter()
 
-    result, turnover_values = func(**kwargs)
+    result, turnover_values, correlation_values, tracking_error_values = func(**kwargs)
 
     end_time = time.perf_counter()
     logger.info(f"--- CLI Execution: Finished {args.case} in {end_time - start_time:.2f}s ---")
 
     # Quick terminal feedback
-    nan_count = np.isnan(result[0]).sum()
+    nan_count = np.isnan(result[:,0,:]).sum()
     logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
-    return result, turnover_values
+    return result, turnover_values, correlation_values, tracking_error_values
 
 if __name__ == "__main__":
     main()
-
-# #Auto run
-# if __name__ == "__main__":
-#     target_case = "case_a_base"
-
-#     optimized_weights = run_case(cases, target_case)
-
-    # print(f"Shape of returned weights: {optimized_weights.shape}")
-    # print(f"Total NaNs (failed optimizations): {np.isnan(optimized_weights).sum()}")
-
-#NOTE: Incompatible with dictionary
-# # #2735 is distance to 2026
-# def loop_optimization(
-#     num_days: int = 2735,
-#     log_every: int = 100,
-# ):
-#     temp = np.load(file_weights_long)
-#     on_off = temp["y"]
-#     delta = temp["z"]
-
-#     port = portfolio(max_weight=0.04, individual_turnover=0.02, total_turnover=0.6, pass_file=True, assets_on=on_off, assets=delta, printouts=False, alpha_on=False)
-
-#     start_time = time.perf_counter()
-#     total_optimizations = (num_days) * 3
-#     optimizations_completed = 0
-
-#     raw_weights = np.zeros((num_days * 3, on_off.shape[1]))
-#     for current_day in range(1, num_days ):
-#         for current_speed in range(3):
-#             port.speed.value = current_speed
-#             port.day.value = current_day
-#             iter_start = time.perf_counter()
-#             optimized_weights, gate_a = port.run_optimize()
-#             iter_time = time.perf_counter() - iter_start
-#             if optimized_weights is not None:
-#                 raw_weights[current_day * 3 + current_speed][port.mask] = optimized_weights.value
-#                 logger.debug(f"day={current_day} speed={current_speed} status=optimal time={iter_time:.4f}s")
-#             else:
-#                 raw_weights[current_day * 3 + current_speed][port.mask] = np.nan
-#                 logger.debug(f"day={current_day} speed={current_speed} status=FAILED time={iter_time:.4f}s")
-#             optimizations_completed += 1
-#             if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations - 1: logger.info(f"Optimizations completed: {optimizations_completed} /{total_optimizations}")
-
-#     end_time = time.perf_counter()
-#     console_handler.terminator = "\n"
-#     print()
-#     logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
-#     np.savez(no_gating_a, result=raw_weights)
-#     return raw_weights
-
-    # def berhu_function(self, x: cp.Variable, weights_one):
-    #     abs_diff = np.abs(x - weights_one)
-
-    #     quadratic = np.square(abs_diff**2 + self.threshold**2) / (2 * self.threshold)
-
-    #     return np.sum(np.where(abs_diff <= self.threshold, abs_diff, quadratic))
-
-    # def berhu_function(self, x: cp.Variable, weights_one):
-    #     abs_diff = cp.abs(x - weights_one)
-    #     excess = cp.pos(abs_diff - self.threshold)
-    #     berhu_values = abs_diff + cp.square(excess) / (2 * self.threshold)
-    #     return cp.sum(berhu_values)
-    # def objective(self, x, z, weights_one, weights_two):
-    #     return super().objective(
-    #         x, z, weights_one, weights_two
-    #     ) + self.scale * self.berhu_function(x, weights_one)
