@@ -1,14 +1,11 @@
 import argparse
 import functools
-from cvxpy.settings import INT_IDX
 import h5py
-import math
 import operator
 import random
 import time
 import logging
 import sys
-import warnings
 
 import cvxpy as cp
 import numpy as np
@@ -168,15 +165,15 @@ def timer(func):
 class portfolio:
     def __init__(
         self,
-        individual_turnover: float = 0.008,
-        max_weight: float = 0.008,
-        total_turnover: float = 0.8,
-        hard_turnover: float = 0.1,
+        individual_turnover: float = 0.02,
+        max_weight: float = 0.04,
+        total_turnover: float = 0.4,
+        hard_turnover: float = 0.3,
         day: int = 1,
         speed: int = 0,
         alpha: float = 1,
         n_sectors: int = 30,
-        eps: float = 1e-8,
+        eps: float = 1e-7,
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
         solver: str = "clarabel",
@@ -184,7 +181,7 @@ class portfolio:
         pass_file: bool = False,
         assets_on: np.ndarray = None,
         assets: np.ndarray = None,
-        alpha_on: bool = True,
+        alpha_on: bool = False,
         mask: np.ndarray = None,
         clip_threshold: float = None,
     ) -> None:
@@ -213,6 +210,7 @@ class portfolio:
         self.tracking_error = cp.Parameter(value=None)
         self.below_eps = cp.Parameter(value=None)
         self.clip_threshold = cp.Parameter(value=clip_threshold)
+        self.char_name = cp.Parameter(value=None)
 
     def generate_weights(
         self,
@@ -240,8 +238,7 @@ class portfolio:
         day_weights /= np.where(row_sums == 0, 1, row_sums)
         day_weights -= day_weights.mean(axis=1, keepdims=True)
         day_weights *= 2
-        if self.clip_threshold is not None:
-            day_weights = np.clip(day_weights, -self.clip_threshold.value, self.clip_threshold.value)
+
         if not np.isfinite(day_weights).all():
             logger.warning(
                 f"Non-finite weights day={self.day.value} speed={self.speed.value}"
@@ -265,6 +262,12 @@ class portfolio:
         z = cp.Variable(1, name="upper_total_gate")
         self.current_weights = cp.Parameter(weights_one.shape[0], value=weights_one)
         self.target_weights = cp.Parameter(weights_two.shape[0], value=weights_two)
+        # if self.clip_threshold.value is not None:
+        #     lo, hi = np.percentile(weights_one, [self.clip_threshold.value, 100.0 - self.clip_threshold.value])
+        #     np.clip(weights_one, lo, hi, out=weights_one)
+        #     lo, hi = np.percentile(weights_two, [self.clip_threshold.value, 100.0 - self.clip_threshold.value])
+        #     np.clip(weights_two, lo, hi, out=weights_two)
+
         return weights_one, weights_two, x, z
 
     def generate_bounds_masks(
@@ -324,12 +327,14 @@ class portfolio:
             sector_weights = dataset[
                 :self.n_sectors.value, : self.current_weights.shape[0]
             ]
+            self.char_name = list(f.keys())[self.day.value]
 
         column_sum = sector_weights.sum(axis=0, keepdims=True)
         sector_weights = sector_weights / column_sum
         self.sector_weights_matrix = cp.Parameter(
             sector_weights.shape, value=sector_weights
         )
+
         return sector_weights
 
     def sector_constraint(self, sector_weights, x):
@@ -401,7 +406,7 @@ class portfolio:
             ]
         else:
             total_turnover_constraint = [
-                cp.sum(cp.abs(x - weights_one)) <= self.total_turnover
+                cp.sum(cp.abs(x - weights_one)) <= (self.total_turnover + self.hard_turnover)
             ]
         return total_turnover_constraint
 
@@ -409,13 +414,15 @@ class portfolio:
         alpha_gate = [z[0] >= -self.eps]
         return alpha_gate
 
-    def objective_a(self, x, weights_two):
-        diff = x - weights_two
-        return cp.sum_squares(diff)
+    # def objective_a(self, x, weights_two):
+    #     diff = x - weights_two
+    #     return cp.sum_squares(diff)
 
     def objective(self, x, z, weights_one, weights_two):
-        diff = x - weights_two
-        return cp.sum_squares(diff) + self.alpha * (z[0]) ** 2
+        obj = cp.sum_squares(x - weights_two)
+        if self.alpha_on.value:
+            obj = obj + self.alpha * z[0] ** 2
+        return obj
 
     def generate_constraints(
         self,
@@ -480,9 +487,9 @@ class portfolio:
 
         return constraints, sector_weights
 
-    def generate_opt(self,opts):
+    def generate_opt(self,solver):
         TOL = 1e-7
-        MAX_ITER = 100000
+        MAX_ITER = 200
 
         # Clarabel Configuration
         clarabel_opts = {
@@ -503,7 +510,7 @@ class portfolio:
             "verbose": False,  # Disable stdout logging to ensure raw speed evaluation
         }
 
-        if opts == "piqp":
+        if solver == "piqp":
             return piqp_opts
         else:
             return clarabel_opts
@@ -578,16 +585,10 @@ class portfolio:
         )
         opts = self.generate_opt(self.solver)
 
-        if self.alpha_on.value:
-            problem = cp.Problem(
-                cp.Minimize(self.objective(x, z, weights_one, weights_two)),
-                constraints,
-            )
-        else:
-            problem = cp.Problem(
-                cp.Minimize(self.objective_a(x, weights_two)),
-                constraints,
-            )
+        problem = cp.Problem(
+            cp.Minimize(self.objective(x, z, weights_one, weights_two)),
+            constraints,
+        )
         start_time = time.perf_counter()
         try:
             problem.solve(**opts)
@@ -599,7 +600,7 @@ class portfolio:
         end_time = time.perf_counter()
         if self.printouts.value == True:
             print(f"Solver time: {end_time - start_time:.4f} seconds")
-            if problem.status == "optimal":
+            if problem.status == "optimal" or problem.status == "optimal_inaccurate":
                 optimize_weights = x
                 gate_a = z
                 correlation = stats.pearsonr(optimize_weights.value, weights_two)
@@ -642,14 +643,14 @@ class elastic_net(portfolio):
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
 
     def objective(self, x, z, weights_one, weights_two):
-        l1_gate_penalty = self.lambda_a * cp.norm(x - weights_one, 1)
-        l2_gate_penalty = self.lambda_b * cp.sum_squares(x - weights_one)
-
+        l1_gate_penalty = cp.norm(x - weights_one, 1)
+        l2_gate_penalty = cp.sum_squares(x - weights_one)
+        obj = super().objective(x, z, weights_one, weights_two)
         objective = (
-            super().objective(x, z, weights_one, weights_two)
-            + l1_gate_penalty
-            + l2_gate_penalty
+            obj
+            + self.lambda_a.value * (self.lambda_b.value * l1_gate_penalty + 0.5 * (1 - self.lambda_b.value) * l2_gate_penalty)
         )
+
         return objective
         # return super().objective(x, y, z, weights_two)
 
@@ -953,12 +954,13 @@ def find_day_index(day: str | datetime):
             f"No exact key for {date_str}; using next available date {matched}"
         )
         pos += 1
-
+    matched = keys[pos]
     return pos, matched
 
+#Defaults to 11 year runner
 def loop_optimization(
-    start_day: str = "beginning",
-    end_day: str = "end",
+    start_day: str = "2015-07-01",
+    end_day: str = "2026-07-01",
     log_every: int = 100,
     portfolio_class=portfolio,
     portfolio_kwargs=None,
@@ -985,10 +987,10 @@ def loop_optimization(
 
     num_days = end - begin
 
-    turnover_values = np.zeros((num_days, 3))
-    correlation_values = np.zeros((num_days, 3))
-    tracking_error_values = np.zeros((num_days, 3))
-    below_eps_values = np.zeros((num_days, 3))
+    turnover_values = np.full((num_days, 3), np.nan)
+    correlation_values = np.full((num_days, 3), np.nan)
+    tracking_error_values = np.full((num_days, 3), np.nan)
+    below_eps_values = np.full((num_days, 3), np.nan)
 
     # Inject required arguments for file passing to keep the cases dictionary clean
     portfolio_kwargs.setdefault("pass_file", True)
@@ -1017,17 +1019,64 @@ def loop_optimization(
             iter_time = time.perf_counter() - iter_start
 
             if optimized_weights is not None:
-                turnover_values[current_day - begin, current_speed] = np.sum(np.abs(optimized_weights.value - port.current_weights.value))
+                turnover_values[current_day - begin, current_speed] = np.sum(
+                    np.abs(optimized_weights.value - port.current_weights.value)
+                )
                 correlation_values[current_day - begin, current_speed] = port.correlation.value
                 tracking_error_values[current_day - begin, current_speed] = port.tracking_error.value
                 below_eps_values[current_day - begin, current_speed] = port.below_eps.value
                 raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
                 day_success[current_day - begin, current_speed] = True
             else:
-
                 raw_weights[current_day - begin, port.mask, current_speed] = np.nan
                 day_success[current_day - begin, current_speed] = False
-                logger.warning(f"FAILED day={current_day} speed={current_speed} time={iter_time:.4f}s")
+                logger.warning(f"FAILED day={current_day} speed={current_speed} time={iter_time:.4f}s key={port.char_name}")
+                # --- Retry with progressive clipping of the most extreme weights ---
+                # thresholds: 0.01, 0.02, ..., 0.07  (matches the i/100 placeholder)
+                # retry_succeeded = False
+                # for i in range(5, 13):
+                #     threshold = i / 10.0
+                #     port.clip_threshold.value = threshold
+
+                #     retry_start = time.perf_counter()
+                #     logger.warning(
+                #         f"Retrying day={current_day} speed={current_speed} "
+                #         f"clip=+/-{threshold:.2f}"
+                #     )
+                #     optimized_weights, gate_a = port.run_optimize()
+                #     retry_time = time.perf_counter() - retry_start
+
+                #     if optimized_weights is not None:
+                #         retry_succeeded = True
+                #         turnover_values[current_day - begin, current_speed] = np.sum(
+                #             np.abs(optimized_weights.value - port.current_weights.value)
+                #         )
+                #         correlation_values[current_day - begin, current_speed] = port.correlation.value
+                #         tracking_error_values[current_day - begin, current_speed] = port.tracking_error.value
+                #         below_eps_values[current_day - begin, current_speed] = port.below_eps.value
+                #         raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
+                #         day_success[current_day - begin, current_speed] = True
+
+                #         logger.warning(
+                #             f"Retry SUCCEEDED day={current_day} speed={current_speed} "
+                #             f"clip=+/-{threshold:.2f} time={retry_time:.4f}s"
+                #         )
+                #         break
+                #     else:
+                #         logger.warning(
+                #             f"Retry failed day={current_day} speed={current_speed} "
+                #             f"clip=+/-{threshold:.2f} time={retry_time:.4f}s"
+                #         )
+
+                # # Always reset so the next (day, speed) starts fresh
+                # port.clip_threshold.value = None
+
+                # if not retry_succeeded:
+                #     raw_weights[current_day - begin, port.mask, current_speed] = np.nan
+                #     day_success[current_day - begin, current_speed] = False
+                #     logger.warning(
+                #         f"FAILED day={current_day} speed={current_speed} after all retries"
+                #     )
 
             optimizations_completed += 1
             if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations:
@@ -1039,301 +1088,36 @@ def loop_optimization(
     logger.info(f"Optimization completed over {total_optimizations} portfolios. Total time: {end_time - start_time:.4f}s")
     console_handler.terminator = "\n"
 
+    parameters_dtype = np.dtype([
+        ("total_turnover", "f8"),
+        ("hard_turnover", "f8"),
+        ("max_weights", "f8"),
+        ("individual_turnover", "f8"),
+        ("alpha", "f8"),
+        ("lambda_a", "f8"),
+        ("lambda_b", "f8"),
+    ])
+
+    parameters = np.zeros(1, dtype=parameters_dtype)
+
+    common = (
+        port.total_turnover.value,
+        port.hard_turnover.value,
+        port.max_weight.value,
+        port.individual_turnover.value,
+        port.alpha.value,
+    )
+
+    if portfolio_class == elastic_net:
+        parameters[0] = common + (port.lambda_a.value, port.lambda_b.value)
+    else:
+        parameters[0] = common + (np.nan, np.nan)
+
+
     if save_filename:
-        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success)
-    return raw_weights, turnover_values, correlation_values, tracking_error_values, day_success
+        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success, below_eps = below_eps_values, parameters=parameters)
+    return raw_weights, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters
 
-cases = {
-    "case_a_base": (
-        loop_optimization,
-        {
-            "start_day": "2026-07-01",
-            # "end_day": "2015-03-04",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.6,
-                "alpha_on": False
-            },
-            "save_filename": results_folder / "results_case_a_base.npz"
-        }
-    ),
-    "case_a_full": (
-        loop_optimization,
-        {
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.6,
-                "alpha_on": False
-            },
-            "save_filename": results_folder / "results_case_a_full.npz"
-
-        }
-    ),
-    "alpha_a_base": (
-        loop_optimization,
-        {
-            "start_day": "2026-07-01",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.1,
-                "alpha_on": True,
-                "hard_turnover": 0.2,
-            },
-            "save_filename": results_folder / "results_alpha_a_base.npz"
-
-        }
-    ),
-    "alpha_b_base": (
-        loop_optimization,
-        {
-            "start_day": "2026-07-01",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.00001,
-                "alpha_on": True,
-                "hard_turnover": 0.2,
-            },
-            "save_filename": results_folder / "results_alpha_b_base.npz"
-
-        }
-    ),
-    "alpha_c_base": (
-        loop_optimization,
-        {
-            "start_day": "2026-07-01",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.01,
-                "alpha_on": True,
-                "hard_turnover": 0.2,
-            },
-            "save_filename": results_folder / "results_alpha_c_base.npz"
-
-        }
-    ),
-    "alpha_a_full": (
-        loop_optimization,
-        {
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.6,
-                "alpha" : 0.1,
-                "alpha_on": True,
-            },
-            "save_filename": results_folder / "results_alpha_a_full.npz"
-
-        }
-    ),
-    "alpha_b_full": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.6,
-                "alpha" : 0.1,
-                "alpha_on": True,
-            },
-            "save_filename": results_folder / "results_alpha_b_full.npz"
-
-        }
-    ),
-    #Checking infeasible day 1926, speed 1
-    "check_infeasible": (
-        loop_optimization,
-        {
-            "start_day" : "2022-09-11",
-            "end_day" : "2022-09-14",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.6,
-                "alpha" : 0.001,
-                "alpha_on": True,
-            },
-            "save_filename": None
-
-        }
-    ),
-    "alpha_c_full": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.50,
-                "alpha" : 10,
-                "alpha_on": True,
-            },
-            "save_filename": results_folder / "results_alpha_c_full.npz"
-
-        }
-    ),
-    "alpha_d_full": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.50,
-                "alpha" : 1,
-                "alpha_on": True,
-            },
-            "save_filename": results_folder / "results_alpha_d_full.npz"
-
-        }
-    ),
-    "alpha_e_full_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.001,
-                "alpha_on": True,
-                "hard_turnover": 0.3,
-            },
-            "save_filename": results_folder / "results_alpha_e_full_hard.npz"
-
-        }
-    ),
-    "alpha_f_full_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.01,
-                "alpha_on": True,
-                "hard_turnover": 0.3,
-            },
-            "save_filename": results_folder / "results_alpha_f_full_hard.npz"
-
-        }
-    ),
-    "alpha_g_full_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 0.1,
-                "alpha_on": True,
-                "hard_turnover": 0.3,
-            },
-            "save_filename": results_folder / "results_alpha_g_full_hard.npz"
-
-        }
-    ),
-    "alpha_h_base_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2015-07-21",
-            "log_every": 10,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 100,
-                "alpha_on": True,
-                "hard_turnover": 0.25,
-            },
-            "save_filename": results_folder / "results_alpha_h_base_hard.npz"
-
-        }
-    ),
-    "alpha_h_full_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 100,
-                "alpha_on": True,
-                "hard_turnover": 0.3,
-            },
-            "save_filename": results_folder / "results_alpha_h_full_hard.npz"
-
-        }
-    ),
-    "alpha_i_full_hard": (
-        loop_optimization,
-        {
-            "start_day" : "2015-07-01",
-            "end_day" : "2026-07-01",
-            "log_every": 100,
-            "portfolio_class": portfolio,
-            "portfolio_kwargs": {
-                "max_weight": 0.04,
-                "individual_turnover": 0.02,
-                "total_turnover": 0.4,
-                "alpha" : 10,
-                "alpha_on": True,
-                "hard_turnover": 0.3,
-            },
-            "save_filename": results_folder / "results_alpha_i_full_hard.npz"
-
-        }
-    ),
-
-}
 
 def run_case(cases_dict: dict, case_name: str):
 
@@ -1343,11 +1127,14 @@ def run_case(cases_dict: dict, case_name: str):
     logger.info(f"Starting {case_name}")
 
     func, kwargs = cases_dict[case_name]
-    result, turnover_values, correlation_values, tracking_error_values = func(**kwargs)
+    raw_weights, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters = func(**kwargs)
     logger.info(f"Finished {case_name}\n")
-    return result, turnover_values, correlation_values, tracking_error_values
+    return raw_weights, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters
 
 def main():
+    from cases_dict import get_cases
+    cases = get_cases(results_folder)
+
     parser = argparse.ArgumentParser(
         description="Portfolio Optimization CLI",
         formatter_class=argparse.RawTextHelpFormatter
@@ -1419,7 +1206,7 @@ def main():
 
     # --- Extract function and kwargs ---
     func, kwargs = cases[args.case]
-
+    kwargs["save_filename"] = results_folder / f"results_{args.case}.npz"
     # Per-case log file
     log_path = attach_case_log_file(args.case)
     logger.info(f"Logging this run to {log_path}")
@@ -1441,7 +1228,7 @@ def main():
     logger.info(f"--- CLI Execution: Starting {args.case} ---")
     start_time = time.perf_counter()
 
-    result, turnover_values, correlation_values, tracking_error_values = func(**kwargs)
+    result, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters = func(**kwargs)
 
     end_time = time.perf_counter()
     logger.info(f"--- CLI Execution: Finished {args.case} in {end_time - start_time:.2f}s ---")
@@ -1449,7 +1236,7 @@ def main():
     # Quick terminal feedback
     nan_count = np.isnan(result[:,0,:]).sum()
     logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
-    return result, turnover_values, correlation_values, tracking_error_values
+    return result, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters
 
 if __name__ == "__main__":
     main()
