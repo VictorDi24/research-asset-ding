@@ -1,5 +1,6 @@
 import argparse
 import functools
+from typing import override
 import h5py
 import operator
 import random
@@ -173,7 +174,7 @@ class portfolio:
         speed: int = 0,
         alpha: float = 1,
         n_sectors: int = 30,
-        eps: float = 1e-7,
+        eps: float = 1e-8,
         sector_abs_weight: float = 1e-3,
         number_gates: int = 2,
         solver: str = "clarabel",
@@ -208,9 +209,11 @@ class portfolio:
         self.alpha_on = cp.Parameter(value=alpha_on)
         self.correlation = cp.Parameter(value = None)
         self.tracking_error = cp.Parameter(value=None)
+        self.penalty = cp.Parameter(value=None)
         self.below_eps = cp.Parameter(value=None)
         self.clip_threshold = cp.Parameter(value=clip_threshold)
         self.char_name = cp.Parameter(value=None)
+        self.num_stocks = cp.Parameter(value=None)
 
     def generate_weights(
         self,
@@ -267,6 +270,8 @@ class portfolio:
         #     np.clip(weights_one, lo, hi, out=weights_one)
         #     lo, hi = np.percentile(weights_two, [self.clip_threshold.value, 100.0 - self.clip_threshold.value])
         #     np.clip(weights_two, lo, hi, out=weights_two)
+        num_stocks = weights_one.shape[0]
+        self.num_stocks = cp.Parameter(value=num_stocks)
 
         return weights_one, weights_two, x, z
 
@@ -626,6 +631,7 @@ class portfolio:
                 correlation = stats.pearsonr(optimize_weights.value, weights_two)
                 self.correlation.value = correlation.statistic
                 self.tracking_error.value = ((optimize_weights.value - weights_two) ** 2).sum()
+                self.penalty.value = problem.value - self.tracking_error.value
                 self.below_eps.value = (abs(weights_one - optimize_weights.value) <= self.eps.value).sum()
             else:
                 logger.debug(
@@ -641,7 +647,7 @@ class elastic_net(portfolio):
         print("initialized elastic_net")
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
-
+        self.penalty = cp.Parameter(value=None)
     def objective(self, x, z, weights_one, weights_two):
         l1_gate_penalty = cp.norm(x - weights_one, 1)
         l2_gate_penalty = cp.sum_squares(x - weights_one)
@@ -653,7 +659,6 @@ class elastic_net(portfolio):
 
         return objective
         # return super().objective(x, y, z, weights_two)
-
 
 class berhu_penalty(portfolio):
     def __init__(self, threshold: float = 1e-6, scale: float = 1e-6, **kwargs):
@@ -990,6 +995,8 @@ def loop_optimization(
     turnover_values = np.full((num_days, 3), np.nan)
     correlation_values = np.full((num_days, 3), np.nan)
     tracking_error_values = np.full((num_days, 3), np.nan)
+    penalty_values = np.full((num_days, 3), np.nan)
+    num_stocks = np.full((num_days, 3), np.nan)
     below_eps_values = np.full((num_days, 3), np.nan)
 
     # Inject required arguments for file passing to keep the cases dictionary clean
@@ -1024,9 +1031,12 @@ def loop_optimization(
                 )
                 correlation_values[current_day - begin, current_speed] = port.correlation.value
                 tracking_error_values[current_day - begin, current_speed] = port.tracking_error.value
+                penalty_values[current_day - begin, current_speed] = port.penalty.value
+                num_stocks[current_day - begin, current_speed] = port.num_stocks.value
                 below_eps_values[current_day - begin, current_speed] = port.below_eps.value
                 raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
                 day_success[current_day - begin, current_speed] = True
+
             else:
                 raw_weights[current_day - begin, port.mask, current_speed] = np.nan
                 day_success[current_day - begin, current_speed] = False
@@ -1115,7 +1125,7 @@ def loop_optimization(
 
 
     if save_filename:
-        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success, below_eps = below_eps_values, parameters=parameters)
+        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success, below_eps = below_eps_values, parameters=parameters, num_stocks=num_stocks, penalty_values=penalty_values)
     return raw_weights, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters
 
 
