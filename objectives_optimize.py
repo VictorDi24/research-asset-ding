@@ -663,7 +663,6 @@ class elastic_net(portfolio):
 class berhu_penalty(portfolio):
     def __init__(self, threshold: float = 1e-6, scale: float = 1e-6, **kwargs):
         super().__init__(**kwargs)
-        print("initialized berhu")
         self.threshold = cp.Parameter(nonneg=True, value=threshold)
         self.scale = cp.Parameter(nonneg=True, value=scale)
 
@@ -802,16 +801,29 @@ class berhu_penalty(portfolio):
             cp.Minimize(self.objective(x, z, s, t, weights_one, weights_two)),
             constraints,
         )
+
         start_time = time.perf_counter()
-        problem.solve(**opts)
+        try:
+            problem.solve(**opts)
+        except cp.error.SolverError as e:
+            logger.warning(
+                f"SolverError day={self.day.value} speed={self.speed.value}: {e}"
+            )
+            return None, None
         end_time = time.perf_counter()
         if self.printouts.value == True:
             print(f"Solver time: {end_time - start_time:.4f} seconds")
             if problem.status == "optimal":
                 optimize_weights = x
                 gate_a = z
+                correlation = stats.pearsonr(optimize_weights.value, weights_two)
+                self.correlation.value = correlation.statistic
+                self.tracking_error.value = ((optimize_weights.value - weights_two) ** 2).sum()
+                self.penalty.value = problem.value - self.tracking_error.value
+                self.below_eps.value = (abs(weights_one - optimize_weights.value) <= self.eps.value).sum()
 
                 print("Status:", problem.status)
+                print("Optimal objective value:", problem.value)
                 self.print_details(
                     optimize_weights,
                     weights_two,
@@ -826,14 +838,19 @@ class berhu_penalty(portfolio):
                 print(f"Solver: {self.solver}")
                 self.s = s.value
                 self.t = t.value
-
             else:
                 print("optimization failed.")
                 return None, None
+
         else:
             if problem.status == "optimal":
                 optimize_weights = x
                 gate_a = z
+                correlation = stats.pearsonr(optimize_weights.value, weights_two)
+                self.correlation.value = correlation.statistic
+                self.tracking_error.value = ((optimize_weights.value - weights_two) ** 2).sum()
+                self.penalty.value = problem.value - self.tracking_error.value
+                self.below_eps.value = (abs(weights_one - optimize_weights.value) <= self.eps.value).sum()
             else:
                 logger.debug(
                     f"day={self.day.value} speed={self.speed.value} solver_status={problem.status}"
@@ -964,8 +981,8 @@ def find_day_index(day: str | datetime):
 
 #Defaults to 11 year runner
 def loop_optimization(
-    start_day: str = "2015-07-01",
-    end_day: str = "2026-07-01",
+    start_day: str = "2016-01-02",
+    end_day: str = "2025-12-31",
     log_every: int = 100,
     portfolio_class=portfolio,
     portfolio_kwargs=None,

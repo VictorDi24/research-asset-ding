@@ -9,6 +9,47 @@ def get_cases(results_folder):
         # ELASTIC NET WITH LB =  0.1
         # --------------
         # --------------
+
+        "berhu_a_base": (
+            loop_optimization,
+            {
+                "start_day": "2016-01-02",
+                "end_day": "2016-01-21",
+                "log_every": 10,
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.005,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_b_base": (
+            loop_optimization,
+            {
+                "start_day": "2016-01-02",
+                "end_day": "2016-01-21",
+                "log_every": 10,
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.01,
+                    "threshold" : 1E-4,
+                    "total_turnover": 0.3
+                },
+            }
+        ),
+        "berhu_c_base": (
+            loop_optimization,
+            {
+                "start_day": "2016-01-02",
+                "end_day": "2016-01-21",
+                "log_every": 10,
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.0001,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
         "elastic_a_full_4": (
             loop_optimization,
             {
@@ -305,7 +346,174 @@ def get_cases(results_folder):
                 },
             }
         ),
-
+        # ---------------
+        # --------------
+        # ELASTIC NET WITH LB =  0.1, INTERSPARSED LA VALUES
+        #
+        # --------------
+        # --------------
+        "elastic_a_full_8": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.015,
+                    "lambda_b" : 0.1,
+                },
+            }
+        ),
+        "elastic_b_full_8": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.025,
+                    "lambda_b" : 0.1,
+                },
+            }
+        ),
+        "elastic_c_full_8": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.035,
+                    "lambda_b" : 0.1,
+                },
+            }
+        ),
+        "elastic_d_full_8": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.045,
+                    "lambda_b" : 0.1,
+                },
+            }
+        ),
+        "elastic_e_full_8": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.055,
+                    "lambda_b" : 0.1,
+                },
+            }
+        ),
+        # ---------------
+        # --------------
+        # ELASTIC NET WITH LB =  0.5, INTERSPARSED LA VALUES
+        #
+        # --------------
+        # --------------
+        "elastic_a_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.015,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
+        "elastic_b_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.025,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
+        "elastic_c_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.035,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
+        "elastic_d_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.045,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
+        "elastic_e_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.055,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
+        # ---------------
+        # --------------
+        # ELASTIC NET WITH LB =  1, INTERSPARSED LA VALUES
+        #
+        # --------------
+        # --------------
+        "elastic_a_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.015,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
+        "elastic_b_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.025,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
+        "elastic_c_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.035,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
+        "elastic_d_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.045,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
+        "elastic_e_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.055,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
         "case_a_base": (
             loop_optimization,
             {
