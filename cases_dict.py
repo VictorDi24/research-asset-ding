@@ -158,6 +158,146 @@ def get_cases(results_folder):
                 },
             }
         ),
+        "berhu_a_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.00005,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_b_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.0001,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_c_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.0005,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_d_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.001,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_e_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.005,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_f_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.01,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_g_full_2": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.1,
+                    "threshold" : 5E-4,
+                },
+            }
+        ),
+        "berhu_a_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.00005,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_b_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.0001,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_c_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.0005,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_d_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.001,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_e_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.005,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_f_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.01,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
+        "berhu_g_full_3": (
+            loop_optimization,
+            {
+                "portfolio_class": berhu_penalty,
+                "portfolio_kwargs": {
+                    "scale" : 0.1,
+                    "threshold" : 1E-4,
+                },
+            }
+        ),
         "elastic_a_full_4": (
             loop_optimization,
             {
