@@ -22,9 +22,9 @@ from pathlib import Path
 random.seed(21)
 BASE_DIR = Path(__file__).resolve().parent
 results_folder = BASE_DIR / "results_folder"
-results_folder.mkdir(parents=True, exist_ok=True)
+# results_folder.mkdir(parents=True, exist_ok=True)
 log_folder = BASE_DIR / "log_folder"
-log_folder.mkdir(parents=True, exist_ok=True)
+# log_folder.mkdir(parents=True, exist_ok=True)
 
 
 file_weights = BASE_DIR / "short_arr_a.npz"
