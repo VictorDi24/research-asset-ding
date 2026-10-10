@@ -981,7 +981,7 @@ def find_day_index(day: str | datetime):
 
 #Defaults to 11 year runner
 def loop_optimization(
-    start_day: str = "2016-01-02",
+    start_day: str = "2016-01-04",
     end_day: str = "2025-12-31",
     log_every: int = 100,
     portfolio_class=portfolio,
@@ -1123,6 +1123,8 @@ def loop_optimization(
         ("alpha", "f8"),
         ("lambda_a", "f8"),
         ("lambda_b", "f8"),
+        ("scale", "f8"),
+        ("threshold", "f8"),
     ])
 
     parameters = np.zeros(1, dtype=parameters_dtype)
@@ -1136,9 +1138,11 @@ def loop_optimization(
     )
 
     if portfolio_class == elastic_net:
-        parameters[0] = common + (port.lambda_a.value, port.lambda_b.value)
+        parameters[0] = common + (port.lambda_a.value, port.lambda_b.value, np.nan, np.nan)
+    if portfolio_class == berhu_penalty:
+        parameters[0] = common + (np.nan, np.nan, port.scale.value, port.threshold.value)
     else:
-        parameters[0] = common + (np.nan, np.nan)
+        parameters[0] = common + (np.nan, np.nan, np.nan, np.nan)
 
 
     if save_filename:
