@@ -22,20 +22,40 @@ results_folder = BASE_DIR / "results_folder"
 
 copied_results_folder = BASE_DIR / "copy_results"
 
-prefixes = ['d', 'f', 'g']
+prefixes = ['a']
 indices = [1]
-type = "berhu"
+type = "normal"
 for prefix in prefixes:
     for i in indices:
-        save_filename = f"results_{type}_{prefix}_full_{i}_copy"
-        data = np.load(results_folder / f"results_{type}_{prefix}_full_{i}.npz")
+        save_filename = f"results_{type}_{prefix}_full_copy"
+
+        data = np.load(results_folder / f"results_{type}_{prefix}_full.npz")
+
+        # CLIPPING
         result = data["result"][128:-124,:,:]
         turnover = data["turnover"][128:-124,:]
         correlation = data["correlation"][128:-124,:]
         tracking_error = data["tracking_error"][128:-124,:]
         below_eps = data["below_eps"][128:-124,:]
-        day_success = data["day_success"]
+        day_success = data["day_success"][128:-124,:]
         parameters = data["parameters"]
         num_stocks = data["num_stocks"][128:-124,:]
         penalty_values = data["penalty_values"][128:-124,:]
-        np.savez_compressed(copied_results_folder / save_filename, result=result, turnover=turnover, correlation=correlation, tracking_error=tracking_error, day_success=day_success, below_eps = below_eps, parameters=parameters, num_stocks=num_stocks, penalty_values=penalty_values)
+
+        # #NO CLIPPING
+        # result = data["result"]
+        # turnover = data["turnover"]
+        # correlation = data["correlation"]
+        # tracking_error = data["tracking_error"]
+        # below_eps = data["below_eps"]
+        # day_success = data["day_success"]
+        # parameters = data["parameters"]
+        # num_stocks = data["num_stocks"]
+        # penalty_values = data["penalty_values"]
+        np.savez_compressed(copied_results_folder / save_filename, result=result, turnover=turnover, correlation=correlation, tracking_error=tracking_error,
+        day_success=day_success,
+        below_eps = below_eps,
+        parameters=parameters,
+        num_stocks=num_stocks,
+        penalty_values=penalty_values
+        )

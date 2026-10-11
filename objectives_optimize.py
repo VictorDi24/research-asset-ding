@@ -1146,7 +1146,7 @@ def loop_optimization(
 
 
     if save_filename:
-        np.savez(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success, below_eps = below_eps_values, parameters=parameters, num_stocks=num_stocks, penalty_values=penalty_values)
+        np.savez_compressed(save_filename, result=raw_weights, turnover=turnover_values, correlation=correlation_values, tracking_error=tracking_error_values, day_success=day_success, below_eps = below_eps_values, parameters=parameters, num_stocks=num_stocks, penalty_values=penalty_values)
     return raw_weights, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters
 
 

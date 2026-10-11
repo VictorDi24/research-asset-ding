@@ -920,6 +920,16 @@ def get_cases(results_folder):
                 },
             }
         ),
+        "elastic_f_full_9": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.065,
+                    "lambda_b" : 0.5,
+                },
+            }
+        ),
         # ---------------
         # --------------
         # ELASTIC NET WITH LB =  1, INTERSPARSED LA VALUES
@@ -972,6 +982,16 @@ def get_cases(results_folder):
                 "portfolio_class": elastic_net,
                 "portfolio_kwargs": {
                     "lambda_a" : 0.055,
+                    "lambda_b" : 1,
+                },
+            }
+        ),
+        "elastic_f_full_10": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.065,
                     "lambda_b" : 1,
                 },
             }
