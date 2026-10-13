@@ -7,7 +7,7 @@
 % - 1-inch margins on all sides
 % - 11pt minimum font size (Times New Roman / MathPTMX utilized here)
 % - Non-bold section headers (standard scholarly/STS submission style)
-% ==============================================================================
+% ============================================================================
 
 \documentclass[11pt, letterpaper]{article}
 
@@ -26,9 +26,45 @@
 \usepackage{hyperref}                  % Hyperlinks and metadata
 \usepackage{dsfont}
 
+
+\usepackage[
+    left=1cm,
+    right=1cm,
+    top=1cm,
+    bottom=1cm
+]{geometry}
+
 \usepackage{pgfplots}
-\pgfplotsset{compat=1.18}
+\pgfplotsset{compat=1.17}
+\usepackage{subcaption}
+\usepackage{graphicx}
 \usepgfplotslibrary{groupplots}
+
+\newcommand{\sfw}{0.30\textwidth}
+
+\pgfplotsset{
+    gammascale/.style={
+        scaled y ticks=false,
+        yticklabel={\pgfmathparse{\tick*100}%
+                    \pgfmathprintnumber[fixed,precision=1]{\pgfmathresult}},
+        ylabel={$\gamma\ (\times 10^{-2})$},
+    }
+}
+\pgfplotsset{
+    my3dsurf/.style={
+        width=\linewidth,
+        height=5cm,
+        font=\small,
+        tick label style={font=\tiny},
+        label style={font=\scriptsize},
+        view={-50}{28},
+        colormap/viridis,
+        grid=major,
+
+    }
+}
+
+
 
 %TikZ packages
 \newcommand{\dlt}{1}
@@ -350,7 +386,7 @@ desirable to permit certain violations of hard constraints. To achieve this, we 
 Soft constraints allow such violations while discouraging large ones by adding a penalty to the objective. We will consider three
 distinct types of soft constraints: a turnover penalty, an Elastic Net, and a Berhu penalty.
 
-\subsection{Soft Cap of Total Turnover}
+\subsection{Soft Cap of Total Turnover (Alpha Gating)}
 The trading from $w^*$ to $w$ incurs transaction costs. It is thus desirable to balance the objective function and turnover to
 avoid paying deterministic upfront costs on insignificant or uncertain transactions. Imposing a hard budge limit on total
 turnover, however, handicaps portfolio construction on achieving its objective. Instead, we should consider the potential
@@ -377,6 +413,7 @@ and add a penalty term to the objective function $q(\cdot)$,
 \begin{equation}\label{eq:tvr-total}
 	p(z) = \alpha z^2.
 \end{equation}
+This term will be referred to as an alpha gate.
 The exogenous parameter $\alpha > 0$ determines the cost of going above $\tilde{T}$. The variable $z$ will be optimized along
 with $w$. The quadratic term has the benefit of having a comparable magnitude with many objective function forms of $q(w)$ such
 that the choice of $\alpha$ can be more intuitive. It is completely reasonable to replace it with $\alpha |z|$. The presence of
@@ -386,7 +423,7 @@ This formulation is very intuitive. The total turnover is allowed to exceed $\ti
 turnover is less than $\tilde{T}$, no penalty is paid. The larger the value of $\alpha$, the more the final turnover is
 discouraged from exceeding $T$, and vice versa. This ``soft cap'' is not a rigid hard bound, allowing some room to trade more
 when situation dictates that. When both a ``hard cap'' and a ``soft cap'' are present, we generally have $\tilde{T} < T$ in
-that $T$ serves as a final safeguard on the total turnover.
+that $T$ serves as a rigid safeguard on the total turnover.
 
 \section{Regularization of Noisy Trades}
 
@@ -595,14 +632,219 @@ outliers. The Huber's Loss based objective function penalizes larger $|w - \tild
 much the solver discourages responses to large outliers in $\tilde{w}$ above $\delta$.
 
 \section{Numerical Experiments}
-This section is currently under construction.
+We utilized proprietary data to create $10$ years of daily target weight portfolios to be optimized by variations of
+\begin{equation*}
+	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2 + \dots.
+\end{equation*}
+% TO COMPLETE
+Portfolio sizes were $1700$ and $2300$ assets, consisting of approximately the most liquid assets in the New York Stock Exchange and the Nasdaq. Each day, portfolios were created from $3$ different models varying in trade speed. We also considered exposures of all assets in $30$ attrbutes.
 
-We will utilize variations of tracking error objectives using a proprietary daily dataset over several years. Each target
-portfolio has between $2000$ and $2500$ stocks. A few variants of target portfolio series range from low to high turnovers, and also
-have different attribute exposures prior to optimization. We will calculate metrics to evaluate the impacts of the
-aforementioned penalty forms.
+Prior to optimizing with penalties, we ran a complete iteration of the $10$ years without them. [ADD CONSTRAINTS HERE].
 
-%\subsection{contents tbd}
+Uppercase letters $(Z,C,O)$ will be used to denote a metric (number of individual turnovers below eps, correlation, tracking error).
+A superscript $(a,b,e,n)$ will be used to denote the type of penalty (Alpha gating, Berhu, Elastic Net, no penalty).
+When applicable, a subscript $(0,1,2)$ will be utilized to denote the speed of an optimized portfolio, $0$ being the fastest. Parameters in parenthesis denote exogenous parameters. For example, $c^B_1(\beta = 0.5, \gamma = 2 \cdot 10^{-2})$ denotes the correlation metric of a Berhu penalty optimized portfolio with medium speed, and $\beta = 0.5, \gamma = 2 \cdot 10^{-2}$.
+
+Values of $Z$ were calculated by taking an average of individual portfolios then aggregating. We calculated the number of values below an eps of $10^{-8}$ for a portfolio, divided by the number of assets, took the difference from the baseline. Finally, $Z$ equals the average of these difference across all the years.
+
+Values of $C$ were calculated through a direct comparison. We calculated the correlation between an optimized portfolio from its $\tilde{w}$, did the same for the baseline, and took the difference. $C$ was the average of these differences across all the years.
+
+Values of $O$ were calculated with a ratio. We calculated the mean squared tracking error $||w - \tilde{w}||^2_2$, then divided by the number of assets. The same was done for the baseline. We then took the ratio between the two values to find $O$.
+
+Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
+
+\subsection{Impacts of Berhu and Elastic Net Penalties}
+
+\begin{figure}[t]
+    \centering
+    %
+    % ROW 1:: ELASTIC NET
+    %
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            gammascale,
+            xlabel={$\beta$},
+            zlabel={$z$},
+            mesh/cols=3,
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_eps_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$Z^e$}
+        \label{fig:elastic_eps}
+    \end{subfigure}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            gammascale,
+            scaled z ticks=false,
+            zticklabel style={/pgf/number format/fixed,
+                              /pgf/number format/precision=2},
+            xlabel={$\beta$},
+            zlabel={$z$},
+            mesh/cols=3,
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+            skip first n=1,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_corr_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$C^e$}
+        \label{fig:elastic_corr}
+    \end{subfigure}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            gammascale,
+            xlabel={$\beta$},
+            zlabel={$z$},
+            mesh/cols=3,
+            point meta min=0,
+            point meta max=7,
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+            skip first n=1,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_tracking_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$O^e$}
+        \label{fig:elastic_tracking}
+    \end{subfigure}
+
+    \vspace{0.3cm}
+    %
+    % BERHU GRAPHS: ROW 2
+    %
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            xmode=log,
+            ymode=log,
+            xlabel={$\epsilon$},
+            ylabel={$\gamma$},
+            zlabel={$z$},
+            mesh/cols=5,
+            xlabel style={xshift=-0.3cm},
+            xlabel style={yshift=-0.1cm},
+            xticklabel style={xshift=0cm},
+            xticklabel style={yshift=0.2cm},
+            ytick={1e-5, 1e-3, 1e-1},
+            yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+            yticklabel style={xshift=-0.1cm},
+            yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_eps_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$Z^b$}
+        \label{fig:berhu_eps}
+    \end{subfigure}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            scaled z ticks=false,
+            zticklabel style={/pgf/number format/fixed,
+                              /pgf/number format/precision=2},
+            xmode=log,
+            ymode=log,
+            xlabel={$\epsilon$},
+            ylabel={$\gamma$},
+            zlabel={$z$},
+            mesh/cols=5,
+            xlabel style={xshift=-0.3cm},
+            xlabel style={yshift=-0.1cm},
+            xticklabel style={xshift=0cm},
+            xticklabel style={yshift=0.2cm},
+            ytick={1e-5, 1e-3, 1e-1},
+            yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+            yticklabel style={xshift=-0.1cm},
+            yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+            skip first n=1,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_corr_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$C^b$}
+        \label{fig:berhu_corr}
+    \end{subfigure}
+    \hspace{0.5cm}
+    \begin{subfigure}[b]{\sfw}
+        \centering
+        \begin{tikzpicture}
+        \begin{axis}[
+            my3dsurf,
+            xmode=log,
+            ymode=log,
+            xlabel={$\epsilon$},
+            ylabel={$\gamma$},
+            zlabel={$z$},
+            mesh/cols=5,
+            point meta min=0,
+            point meta max=7,
+            xlabel style={xshift=-0.3cm},
+            xlabel style={yshift=-0.1cm},
+            xticklabel style={xshift=0cm},
+            xticklabel style={yshift=0.2cm},
+            ytick={1e-5, 1e-3, 1e-1},
+            yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+            yticklabel style={xshift=-0.1cm},
+            yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+            surf, shader=interp,
+            mesh/ordering=x varies,
+            skip first n=1,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_tracking_table.txt};
+        \end{axis}
+        \end{tikzpicture}
+        \caption{$O^b$}
+        \label{fig:berhu_tracking}
+    \end{subfigure}
+
+    \caption{Comparison of Elastic Net and Berhu optimization across below eps, correlation, and tracking error metrics.}
+    \label{fig:all_graphs}
+
+\end{figure}
+
 % \section{Conclusion}
 % \subsection{Parallels with Machine Learning and Parameter Searching}
 % \subsection{Next steps in research}

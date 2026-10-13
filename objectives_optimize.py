@@ -1058,52 +1058,6 @@ def loop_optimization(
                 raw_weights[current_day - begin, port.mask, current_speed] = np.nan
                 day_success[current_day - begin, current_speed] = False
                 logger.warning(f"FAILED day={current_day} speed={current_speed} time={iter_time:.4f}s key={port.char_name}")
-                # --- Retry with progressive clipping of the most extreme weights ---
-                # thresholds: 0.01, 0.02, ..., 0.07  (matches the i/100 placeholder)
-                # retry_succeeded = False
-                # for i in range(5, 13):
-                #     threshold = i / 10.0
-                #     port.clip_threshold.value = threshold
-
-                #     retry_start = time.perf_counter()
-                #     logger.warning(
-                #         f"Retrying day={current_day} speed={current_speed} "
-                #         f"clip=+/-{threshold:.2f}"
-                #     )
-                #     optimized_weights, gate_a = port.run_optimize()
-                #     retry_time = time.perf_counter() - retry_start
-
-                #     if optimized_weights is not None:
-                #         retry_succeeded = True
-                #         turnover_values[current_day - begin, current_speed] = np.sum(
-                #             np.abs(optimized_weights.value - port.current_weights.value)
-                #         )
-                #         correlation_values[current_day - begin, current_speed] = port.correlation.value
-                #         tracking_error_values[current_day - begin, current_speed] = port.tracking_error.value
-                #         below_eps_values[current_day - begin, current_speed] = port.below_eps.value
-                #         raw_weights[current_day - begin, port.mask, current_speed] = optimized_weights.value
-                #         day_success[current_day - begin, current_speed] = True
-
-                #         logger.warning(
-                #             f"Retry SUCCEEDED day={current_day} speed={current_speed} "
-                #             f"clip=+/-{threshold:.2f} time={retry_time:.4f}s"
-                #         )
-                #         break
-                #     else:
-                #         logger.warning(
-                #             f"Retry failed day={current_day} speed={current_speed} "
-                #             f"clip=+/-{threshold:.2f} time={retry_time:.4f}s"
-                #         )
-
-                # # Always reset so the next (day, speed) starts fresh
-                # port.clip_threshold.value = None
-
-                # if not retry_succeeded:
-                #     raw_weights[current_day - begin, port.mask, current_speed] = np.nan
-                #     day_success[current_day - begin, current_speed] = False
-                #     logger.warning(
-                #         f"FAILED day={current_day} speed={current_speed} after all retries"
-                #     )
 
             optimizations_completed += 1
             if optimizations_completed % log_every == 0 or optimizations_completed == total_optimizations:
