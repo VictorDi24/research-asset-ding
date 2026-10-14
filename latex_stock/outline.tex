@@ -637,19 +637,50 @@ We utilized proprietary data to create $10$ years of daily target weight portfol
 	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2 + \dots.
 \end{equation*}
 % TO COMPLETE
-Portfolio sizes were $1700$ and $2300$ assets, consisting of approximately the most liquid assets in the New York Stock Exchange and the Nasdaq. Each day, portfolios were created from $3$ different models varying in trade speed. We also considered exposures of all assets in $30$ attrbutes.
+Portfolio sizes were between $1700$ and $2300$ assets, consisting of approximately the most liquid assets in the New York Stock Exchange and the Nasdaq. Each day, $3$ unique target portfolios were created from different models varying in trade speed. We also considered exposures of all assets in $30$ attrbutes.
 
-Prior to optimizing with penalties, we ran a complete iteration of the $10$ years without them. [ADD CONSTRAINTS HERE].
+To maintain comparability, we define standard constraints for all iterations:
+\begin{enumerate}
+    \item $\underline{w} = -0.04$ and $\overline{w} = 0.04$.
+    \item $t = 0.02$.
+    \item $\tilde{T} = 0.4$ and $T = 0.7$. In the absence of penalties, $\tilde{T} = 0$.
+	\item $\underline{S} = -10^{-3}$ and $\overline{S} = 10^{-3}$. Effectively, the exposure in each attribute should be close to neutral, including net exposure.
+	\item $G = 2$, meaning long and short exposure are $1$ and $-1$ respectively.
+\end{enumerate}
 
-Uppercase letters $(Z,C,O)$ will be used to denote a metric (number of individual turnovers below eps, correlation, tracking error).
-A superscript $(a,b,e,n)$ will be used to denote the type of penalty (Alpha gating, Berhu, Elastic Net, no penalty).
-When applicable, a subscript $(0,1,2)$ will be utilized to denote the speed of an optimized portfolio, $0$ being the fastest. Parameters in parenthesis denote exogenous parameters. For example, $c^B_1(\beta = 0.5, \gamma = 2 \cdot 10^{-2})$ denotes the correlation metric of a Berhu penalty optimized portfolio with medium speed, and $\beta = 0.5, \gamma = 2 \cdot 10^{-2}$.
+A function $(a,b,e,n)$ will be used to denote the type of optimization used in an iteration of the $10$ years (Alpha gating, Berhu Penalty, Elastic Net, No Penalty). When applicable, a subscript $(0,1,2)$ denotes the speed model for the target portfolios, $0$ being the quickest. Exogenous parameters (such as $\gamma$ and $\beta$) will be expressed in parenthesis.
+
+For example, $b_2(\gamma = 5, \epsilon = 0.5)$ expresses an iteration using a Berhu penalty, the slowest target portfolio model, and exogenous parameters $\gamma = 5$ and $\epsilon = 0.5$.
+
+We ran a baseline iteration $n_0$ with the standard constraints. Basic metrics describing the iteration are defined in table \ref{tab:portfolio_metrics}. Although we iterated once with all $3$ speed models, we will focus on the speed $0$ so total turnover constraints are more likely to be binding.
+\begin{table}[h]
+\centering
+\label{tab:portfolio_metrics}
+\caption{$n_0$ metrics}
+\begin{tabular}{ll}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Portfolio size & 1750 to 2353 \\
+Average portfolio weight & \(\approx 0.0\) \\
+Weight range & \(-0.02\) to \(0.02\) \\
+Average absolute position exposure & \(3.54 \times 10^{-4}\) \\
+Average correlation between \(w\) and \(\tilde{w}\) & 0.978 \\
+Average \# of stocks with absolute exposures below \(10^{-8}\) & 633 \\
+Average objective function value & \(2.36 \times 10^{-4}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+Uppercase letters $(Z,C,O)$ will be used to denote metrics that describes iterations.
 
 Values of $Z$ were calculated by taking an average of individual portfolios then aggregating. We calculated the number of values below an eps of $10^{-8}$ for a portfolio, divided by the number of assets, took the difference from the baseline. Finally, $Z$ equals the average of these difference across all the years.
 
 Values of $C$ were calculated through a direct comparison. We calculated the correlation between an optimized portfolio from its $\tilde{w}$, did the same for the baseline, and took the difference. $C$ was the average of these differences across all the years.
 
 Values of $O$ were calculated with a ratio. We calculated the mean squared tracking error $||w - \tilde{w}||^2_2$, then divided by the number of assets. The same was done for the baseline. We then took the ratio between the two values to find $O$.
+
 
 Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
 
