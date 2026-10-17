@@ -22,9 +22,67 @@ copy_results = BASE_DIR / "copy_results"
 python_graphs = BASE_DIR / "python_graphs"
 stacked_berhu = copy_results / "berhu_stacked.npz"
 stacked_elastic = copy_results / "elastic_stacked.npz"
+stacked_alpha_turnover = copy_results / "alpha_turnover_stacked.npz"
+stacked_alpha = copy_results / "alpha_stacked.npz"
 no_penalty = copy_results / "results_normal_a_full.npz"
+arr = BASE_DIR / "arr.npz"
 
+#
+# NTS: Take ratio of tracking error, difference of correlation, difference of turnover
+#
+def alpha_turnover():
+    type = "alpha"
+    data = np.load(stacked_alpha_turnover)
+    turnover = data["turnover"].astype(float)
 
+    raw_data = np.load(no_penalty)
+    raw_turnover = raw_data["turnover"].astype(float)
+
+    turnover_diff = raw_turnover - turnover
+    z_values = np.nanmean(turnover_diff, axis=(1, 2))
+
+    rows = []
+
+    for i in range(len(z_values)):
+        z_val = z_values[i].item()
+        rows.append((z_val))
+
+    # rows.sort(key=lambda r: (r[0], r[1]))
+
+    with open(python_graphs / f"{type}_turnover_table.txt", "w") as f:
+        f.write("z\n")
+        for z_val in rows:
+            f.write(f"{z_val:.6f}\n")
+    return turnover_diff
+
+def speed_turnover():
+    data = np.load(arr)
+    masks = data['y']
+    masks = masks.squeeze()
+    speed_days = data['z']
+    weights = speed_days[masks]
+
+    slow = weights[:,:,4]
+    med = weights[:,:,2]
+    fast = weights[:,:,0]
+
+    slow_turnover = np.abs(np.diff(slow, axis=0)).sum(axis=1)
+    med_turnover  = np.abs(np.diff(med,  axis=0)).sum(axis=1)
+    fast_turnover = np.abs(np.diff(fast, axis=0)).sum(axis=1)
+
+    days = np.arange(1, slow_turnover.shape[0] + 1)
+
+    out = np.column_stack([days, slow_turnover, med_turnover, fast_turnover])
+    np.savetxt(
+        'speed_turnover.dat',
+        out,
+        fmt='%d %.10e %.10e %.10e',
+        delimiter=' ',
+        header='',
+        comments=''
+    )
+
+    return slow_turnover, med_turnover, fast_turnover
 
 def below_eps(type : str = "elastic"):
     if type == "berhu":

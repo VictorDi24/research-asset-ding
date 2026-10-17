@@ -30,7 +30,7 @@ log_folder = BASE_DIR / "log_folder"
 file_weights = BASE_DIR / "short_arr_a.npz"
 file_weights_long = BASE_DIR / "arr.npz"
 file_sectors = BASE_DIR / "sector.h5"
-data_file_path = BASE_DIR / "optimized_portfolio.npz"
+data_file_path = BASE_DIR / "optimized_portfolio_copy.npz"
 all_attributes = BASE_DIR / "hrs1.h5"
 no_gating_a = BASE_DIR / "no_gating_assets.npz"
 
@@ -100,7 +100,7 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
     norm_w_curr = w_curr / np.where(sum_curr == 0, 1.0, sum_curr)
 
     mean_curr = np.sum(norm_w_curr, axis=1, keepdims=True) / counts_safe
-    final_w_curr = np.where(y_3d, (norm_w_curr - mean_curr) * 2.0, 0.0)
+    final_w_curr = np.where(y_3d, (norm_w_curr - mean_curr) * 2.0, 0)
 
     weights_prev = np.zeros_like(weights)
     weights_prev[1:] = weights[:-1]
@@ -111,7 +111,7 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
     norm_w_prev = w_prev / np.where(sum_prev == 0, 1.0, sum_prev)
 
     mean_prev = np.sum(norm_w_prev, axis=1, keepdims=True) / counts_safe
-    final_w_prev = np.where(y_3d, (norm_w_prev - mean_prev) * 2.0, 0.0)
+    final_w_prev = np.where(y_3d, (norm_w_prev - mean_prev) * 2.0, 0)
 
     result_dtype = np.dtype([
         ("maximum", "f8"),
@@ -119,9 +119,19 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
         ("long_exposure", "f8"),
         ("count", "i8"),
         ("total turnover", "f8"),
-        ("attribute exposures", "f8", (200,5))
+        ("attribute exposures", "f8", (200,5)),
+        ("weight_eps", "f8"),
+        ("max_ind_turnover", "f8"),
+        ("standard_deviation", "f8"),
     ])
     result = np.empty((num_days, num_speeds), dtype=result_dtype)
+
+    weight_eps = np.sum(np.where(y_3d, final_w_curr, np.inf) < 1E-8, axis=1)
+    result["weight_eps"] = weight_eps
+
+    std_per_row = np.nanstd(np.where(y_3d, final_w_curr, np.nan), axis=1)
+
+    result['standard_deviation'] = std_per_row
 
     has_active = counts.squeeze(axis=1) > 0
 
@@ -138,6 +148,8 @@ def create_data_file(save : bool = False, num_attributes: int = 30):
     turnover[0] = 0.0
     result["total turnover"] = turnover
 
+    max_turnover = np.max(np.abs(final_w_curr - final_w_prev), axis = 1)
+    result["max_ind_turnover"] = max_turnover
 
     with h5py.File(all_attributes, "r") as f:
         arr = weights[:len(sorted(f.keys()))]

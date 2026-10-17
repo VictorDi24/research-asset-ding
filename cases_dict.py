@@ -10,8 +10,13 @@ def get_cases(results_folder):
         "normal_a_full": (
             loop_optimization,
             {
-                "portfolio_class": portfolio,
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.00,
+                    "lambda_b" : 0.0,
+                },
             }
+
         ),
 
         "berhu_a_base": (
@@ -1377,8 +1382,126 @@ def get_cases(results_folder):
 
             }
         ),
-
-
+        "alpha_o_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.002
+                },
+                "save_filename": results_folder / "results_alpha_o_full.npz"
+            }
+        ),
+        "alpha_p_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.003
+                },
+                "save_filename": results_folder / "results_alpha_p_full.npz"
+            }
+        ),
+        "alpha_q_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.004
+                },
+                "save_filename": results_folder / "results_alpha_q_full.npz"
+            }
+        ),
+        "alpha_r_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.005
+                },
+                "save_filename": results_folder / "results_alpha_r_full.npz"
+            }
+        ),
+        "alpha_s_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.006
+                },
+                "save_filename": results_folder / "results_alpha_s_full.npz"
+            }
+        ),
+        "alpha_t_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.007
+                },
+                "save_filename": results_folder / "results_alpha_t_full.npz"
+            }
+        ),
+        "alpha_u_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.008
+                },
+                "save_filename": results_folder / "results_alpha_u_full.npz"
+            }
+        ),
+        "alpha_v_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.009
+                },
+                "save_filename": results_folder / "results_alpha_v_full.npz"
+            }
+        ),
+        "alpha_w_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.02
+                },
+                "save_filename": results_folder / "results_alpha_w_full.npz"
+            }
+        ),
+        "alpha_x_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.03
+                },
+                "save_filename": results_folder / "results_alpha_x_full.npz"
+            }
+        ),
+        "alpha_y_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.04
+                },
+                "save_filename": results_folder / "results_alpha_y_full.npz"
+            }
+        ),
+        "alpha_z_full": (
+            loop_optimization,
+            {
+                "portfolio_kwargs": {
+                    "alpha_on" : True,
+                    "alpha" :  0.06
+                },
+                "save_filename": results_folder / "results_alpha_z_full.npz"
+            }
+        ),
         # ------------------
         # ------------------
         # ELASTIC NET RUNS
@@ -1736,45 +1859,3 @@ def get_cases(results_folder):
 
     }
     return cases
-
-
-# import dataclasses
-# import typing
-
-# @dataclasses.dataclass
-# class Param:
-#   alpha: float
-#   func: typing.Any
-#   pos: float
-#   tvr: float
-#   gate: float
-
-#   def __call__(self, wc, wt, attr) -> Any:
-#      pass
-
-#   def __str__(self) -> str:
-#     return f"alpha_{self.alpha:.4f}_{self.pos:.2f}_{self.tvr:.2f}"
-
-#   @property
-#   def filename(self) -> str:
-#     return f"{self!s}.npz"
-
-# @dataclasses.dataclass
-# class BerhuParam (Param):
-#     pass
-
-# def run(case):
-#     if isinstance(case, BerhuParam):
-#         pass
-#     elif isinstance(case, Param):
-#         pass
-
-# def make_cases():
-#   ans = {}
-#   for alpha in (1e-3, 1e-2, 1e-1, 1):
-#     case = Param(alpha, "some_function", 0.4, 0.3, 0.2)
-#     if str(case) in ans: raise ValueError
-#     ans[str(case)] = case
-
-
-#   return ans
