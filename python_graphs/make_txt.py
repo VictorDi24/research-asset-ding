@@ -22,7 +22,6 @@ copy_results = BASE_DIR / "copy_results"
 python_graphs = BASE_DIR / "python_graphs"
 stacked_berhu = copy_results / "berhu_stacked.npz"
 stacked_elastic = copy_results / "elastic_stacked.npz"
-stacked_alpha_turnover = copy_results / "alpha_turnover_stacked.npz"
 stacked_alpha = copy_results / "alpha_stacked.npz"
 no_penalty = copy_results / "results_normal_a_full.npz"
 arr = BASE_DIR / "arr.npz"
@@ -32,13 +31,13 @@ arr = BASE_DIR / "arr.npz"
 #
 def alpha_turnover():
     type = "alpha"
-    data = np.load(stacked_alpha_turnover)
+    data = np.load(stacked_alpha)
     turnover = data["turnover"].astype(float)
 
     raw_data = np.load(no_penalty)
     raw_turnover = raw_data["turnover"].astype(float)
 
-    turnover_diff = raw_turnover - turnover
+    turnover_diff = turnover - raw_turnover
     z_values = np.nanmean(turnover_diff, axis=(1, 2))
 
     rows = []
@@ -54,6 +53,63 @@ def alpha_turnover():
         for z_val in rows:
             f.write(f"{z_val:.6f}\n")
     return turnover_diff
+
+
+def alpha_correlation():
+    data = np.load(stacked_alpha)
+    corr = data["correlation"].astype(float)
+
+    raw_data = np.load(no_penalty)
+    raw_corr = raw_data["correlation"].astype(float)
+
+    corr_diff = corr - raw_corr
+    z_values = np.nanmean(corr_diff, axis=(1, 2))
+
+    rows = []
+
+    for i in range(len(z_values)):
+        z_val = z_values[i].item()
+        rows.append((z_val))
+
+    with open(python_graphs / "alpha_corr_table.txt", "w") as f:
+        f.write("z\n")
+        for z_val in rows:
+            f.write(f"{z_val:.6f}\n")
+
+    return corr_diff
+
+def alpha_tracking_error(baseline_eps: float = 1e-8):
+    data = np.load(stacked_alpha)
+    tracking = data["tracking_error"].astype(float)
+
+    raw_data = np.load(no_penalty)
+    raw_tracking = raw_data["tracking_error"].astype(float)
+    raw_num_stocks = raw_data["num_stocks"].astype(float)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = tracking / raw_tracking
+
+    valid_baseline = raw_tracking > baseline_eps
+
+    ratio = np.where(valid_baseline, ratio, np.nan)
+
+    z_values = np.nanmean(ratio, axis=(1, 2))
+
+    rows = []
+
+    for i in range(len(z_values)):
+        z_val = z_values[i].item()
+        if not np.isnan(z_val):
+            rows.append((z_val))
+
+    # rows.sort(key=lambda r: (r[0], r[1]))
+
+    with open(python_graphs / "alpha_tracking_table.txt", "w") as f:
+        f.write("z\n")
+        for z_val in rows:
+            f.write(f"{z_val:.6f}\n")
+
+    return ratio
 
 def speed_turnover():
     data = np.load(arr)
@@ -176,7 +232,7 @@ def correlation(type : str = "elastic"):
         raw_corr = raw_corr[0]
         raw_num_stocks = raw_num_stocks[0]
 
-    corr_diff = raw_corr - corr
+    corr_diff = corr - raw_corr
     z_values = np.nanmean(corr_diff, axis=(1, 2))
 
     rows = []

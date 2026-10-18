@@ -23,7 +23,7 @@ results_folder = BASE_DIR / "results_folder"
 copied_results_folder = BASE_DIR / "copy_results"
 
 prefixes = [
-    'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n'
+    'c', 'd'
 ]
 indices = [1]
 type = "alpha"
@@ -34,10 +34,10 @@ for prefix in prefixes:
     data = np.load(results_folder / f"results_{type}_{prefix}_full.npz")
 
     # CLIPPING
-    # result = data["result"][128:-124,:,:]
-    # turnover = data["turnover"][128:-124,:]
-    # correlation = data["correlation"][128:-124,:]
-    # tracking_error = data["tracking_error"][128:-124,:]
+    result = data["result"][128:-124,:,:]
+    turnover = data["turnover"][128:-124,:]
+    correlation = data["correlation"][128:-124,:]
+    tracking_error = data["tracking_error"][128:-124,:]
     # below_eps = data["below_eps"][128:-124,:]
     # day_success = data["day_success"][128:-124,:]
     # parameters = data["parameters"]
@@ -45,10 +45,10 @@ for prefix in prefixes:
     # penalty_values = data["penalty_values"][128:-124,:]
 
     # #NO CLIPPING
-    result = data["result"]
-    turnover = data["turnover"]
-    correlation = data["correlation"]
-    tracking_error = data["tracking_error"]
+    # result = data["result"]
+    # turnover = data["turnover"]
+    # correlation = data["correlation"]
+    # tracking_error = data["tracking_error"]
     # below_eps = data["below_eps"]
     # day_success = data["day_success"]
     # parameters = data["parameters"]
