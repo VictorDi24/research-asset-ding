@@ -1,12 +1,9 @@
-% !TEX program = latexmk
-% !TEX options = -pdf -synctex=1 -interaction=nonstopmode -file-line-error "%DOC%"
-%
 % ==============================================================================
+% NTS: GUIDELINES
 % - Maximum 20 pages (excluding Title Page, Abstract, and References)
 % - 1.5 line spacing
 % - 1-inch margins on all sides
-% - 11pt minimum font size (Times New Roman / MathPTMX utilized here)
-% - Non-bold section headers (standard scholarly/STS submission style)
+% - 11pt font size
 % ============================================================================
 
 \documentclass[11pt, letterpaper]{article}
@@ -19,20 +16,13 @@
 %Typing and fonts
 \usepackage{authblk}
 \usepackage{mathtools}
-\usepackage{amsmath, amsfonts, amssymb} % Advanced mathematical modeling & matrix operations
-\usepackage{graphicx}                  % Figure inclusion
-\usepackage{booktabs}                  % Professional table formatting
-\usepackage{cite}                      % Standard numerical citation management
-\usepackage{hyperref}                  % Hyperlinks and metadata
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{hyperref}
 \usepackage{dsfont}
 
-
-% \usepackage[
-%     left=1cm,
-%     right=1cm,
-%     top=1cm,
-%     bottom=1cm
-% ]{geometry}
 
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
@@ -76,23 +66,6 @@
 \newcommand{\panelw}{0.40\textwidth}
 
 \usepackage{titlesec}
-
-% Section: Large, Normal Weight (Non-Bold)
-% \titleformat{\section}
-%   {\normalfont\Large\fontfamily{ptm}\selectfont}{\thesection}{1em}{}
-
-% % Subsection: Medium, Normal Weight (Non-Bold)
-% \titleformat{\subsection}
-%   {\normalfont\large\fontfamily{ptm}\selectfont}{\thesubsection}{1em}{}
-
-% % Subsubsection: Normal Size, Normal Weight (Non-Bold)
-% \titleformat{\subsubsection}
-%   {\normalfont\normalsize\fontfamily{ptm}\selectfont}{\thesubsubsection}{1em}{}
-
-% % Adjust spacing around section titles
-% \titlespacing*{\section}{0pt}{12pt}{6pt}
-% \titlespacing*{\subsection}{0pt}{10pt}{4pt}
-% \titlespacing*{\subsubsection}{0pt}{8pt}{2pt}
 
 %Hyperlink Setup
 \hypersetup{
@@ -392,18 +365,6 @@ avoid paying deterministic upfront costs on insignificant or uncertain transacti
 turnover, however, handicaps portfolio construction on achieving its objective. Instead, we should consider the potential
 trade-offs of excessive turnovers.
 
-% COMMENT
-
-% The change from $w^*$ to $w$ incurs transaction costs. Naturally, this requires balancing tracking error and turnover to avoid
-% paying fixed costs on insignificant transactions. Using a concrete turnover bound that doesn't discourage/encourage different
-% magnitudes of turnover thus has downsides. We wish to induce a degree of sparsity in a portfolio's turnovers, meaning making
-% fewer, concentrated trades rather than making several tiny trades that will not have sizable effect on portfolio output, but
-% incur fixed costs. In other words, we should increase the number of unchanged assets between optimization. A more aggressive
-% approach to execute this involves setting a certain threshold $\left |w^*_i - \tilde{w}_i \right|$ past which an asset will be
-% forced to remain unchanged. However, this hard constraint leaves no room for exceptions.
-
-% COMMENT
-
 In addition to a hard upper bound $T$ on total turnover \eqref{unedited_total_turnover} or as its replacement, we can introduce
 a slack variable $z > 0$ to relax a constant soft bound $\tilde{T}$ such that
 \begin{equation*}
@@ -677,7 +638,7 @@ For each experiment, we compute the same set of metrics. For the experiments inv
 corresponding metric series as $\{l_t^{(e,i)}(\beta=\cdot,\gamma=\cdot)\}$ (without the penalty term),
 $\{c_t^{(e,i)}(\beta,\gamma)\}$, and $\{z_t^{(e,i)}(\beta,\gamma)\}$, respectively.  Similarly for Berhu penalty
 \eqref{eq:berhu_loss}, we have $\{l_t^{(b,i)}(\epsilon,\gamma)\}$, $\{c_t^{(b,i)}(\epsilon,\gamma)\}$, and
-$\{z_t^{(b,i)}(\epsilon,\gamma)\}$, respectively. For iterations involving the Alpha penalty, we have $\{l_t^{(a,i)}(\alpha)\}$, $\{c_t^{(a,i)}(\alpha)\}$, and $\{o_t^{(a,i)}\}$.
+$\{z_t^{(b,i)}(\epsilon,\gamma)\}$, respectively. For iterations involving the Alpha penalty, we have $\{l_t^{(a,i)}(\alpha)\}$, $\{c_t^{(a,i)}(\alpha)\}$, and $\{o_t^{(a,i)}(\alpha)\}$.
 
 Based on these metric series, we define the following averages over $n$ days:
 \begin{align*}
@@ -688,8 +649,8 @@ Based on these metric series, we define the following averages over $n$ days:
 	C^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(b,i)}(\epsilon,\gamma) - c_t^{(0,i)}(\epsilon,\gamma)\right]}}, \\
 	Z^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[z_t^{(b,i)}(\epsilon,\gamma) - z_t^{(0,i)}(\epsilon,\gamma)\right]}}, \\
 	L^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[l_t^{(a,i)}(\alpha) \div l_t^{(0,i)}(\alpha)\right]}}, \\
-	C^{(b,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(b,i)}(\alpha) - c_t^{(0,i)}(\alpha)\right]}}, \\
-	Z^{(b,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[z_t^{(b,i)}(\alpha) - z_t^{(0,i)}(\alpha)\right]}}.
+	C^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(a,i)}(\alpha) - c_t^{(0,i)}(\alpha)\right]}}, \\
+	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[o_t^{(a,i)}(\alpha) - o_t^{(a,i)}(\alpha)\right]}}.
 \end{align*}
 
 \begin{table}[h]
@@ -714,7 +675,7 @@ The baseline results are presented in table \ref{tab:portfolio_metrics}. Althoug
 series, we will focus on the speed $\mathcal{D}_1$ where total turnover constraints are more likely to be binding.
 
 % discuss the choice of parameter searches.
-Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
+Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}. Graphs for various data points in Alpha iterations are displayed in Figure \ref{fig:alpha_panels}.
 
 \begin{figure}[t]
 \centering
@@ -722,10 +683,10 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
 \begin{groupplot}[
     group style={
         group size=3 by 1,
-        horizontal sep=1.5cm, % Adjust this if you need more space between graphs
+        horizontal sep=1.5cm,
     },
     width=0.34\textwidth,
-    height=4cm,
+    height=5cm,
     xmode=log, log basis x=10,
     xmin=0.0008, xmax=20000,
     grid=both,
@@ -739,8 +700,8 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
 \nextgroupplot[
     ymin=1, ymax=5.2,
     xlabel={$\alpha$},
-    ylabel={$z$},
-    title={Tracking},
+    ylabel={$L^{(a,1)}(\alpha)$},
+    title = {$L$: alpha}
 ]
 \addplot[
     color=green!90!black, mark=*, mark size=1.2pt, line width=1pt,
@@ -750,14 +711,14 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
 \nextgroupplot[
     ymin=-0.1, ymax=0,
     xlabel={$\alpha$},
-    ylabel={$z$},
-    title={Corr},
-    scaled y ticks=false, % <--- Prevents pgfplots from factoring out 10^-2
+    ylabel={$C^{(a,1)}(\alpha)$},
+    title={$C$: alpha},
+    scaled y ticks=false,
     yticklabel style={
         /pgf/number format/fixed,
         /pgf/number format/precision=2,
         /pgf/number format/zerofill,
-    }, % <--- Formats ticks as fixed decimals (e.g., -0.02 instead of -2 * 10^-2)
+    },
 ]
 \addplot[
     color=yellow!90!black, mark=*, mark size=1.2pt, line width=1pt,
@@ -768,8 +729,8 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
 \nextgroupplot[
     ymin=-0.3, ymax=0,
     xlabel={$\alpha$},
-    ylabel={$z$},
-    title={Turnover},
+    ylabel={$O^{(a,1)}(\alpha)$},
+    title={$O$: alpha},
 ]
 \addplot[
     color=blue!90!black, mark=*, mark size=1.2pt, line width=1pt,
@@ -777,14 +738,11 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
 
 \end{groupplot}
 \end{tikzpicture}
-\caption{Turnover, correlation, and tracking-error metrics across $\alpha$.}
+\caption{Alpha penalty optimzation across metrics.}
 \label{fig:alpha_panels}
 \end{figure}
 
-
-\subsection{Impacts of Berhu and Elastic Net Penalties}
-
-\begin{figure}[t]
+\begin{figure}[h]
   \centering
   %
   % ROW 1:: ELASTIC NET
@@ -796,7 +754,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         my3dsurf,
         gammascale,
         xlabel={$\beta$},
-        zlabel={$z$},
+        zlabel={$Z^{(e,1)}(\beta, \gamma)$},
         mesh/cols=3,
         ]
         \addplot3[
@@ -807,7 +765,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {elastic_eps_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$Z^e$}
+    \caption{$Z$: elastic}
     \label{fig:elastic_eps}
   \end{subfigure}
   \hspace{0.5cm}
@@ -821,7 +779,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         zticklabel style={/pgf/number format/fixed,
           /pgf/number format/precision=2},
         xlabel={$\beta$},
-        zlabel={$z$},
+        zlabel={$C^{(e,1)}(\beta, \gamma)$},
         mesh/cols=3,
         ]
         \addplot3[
@@ -832,7 +790,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {elastic_corr_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$C^e$}
+    \caption{$C$: elastic}
     \label{fig:elastic_corr}
   \end{subfigure}
   \hspace{0.5cm}
@@ -843,7 +801,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         my3dsurf,
         gammascale,
         xlabel={$\beta$},
-        zlabel={$z$},
+        zlabel={$L^{(e,1)}(\beta, \gamma)$},
         mesh/cols=3,
         point meta min=0,
         point meta max=7,
@@ -856,7 +814,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {elastic_tracking_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$O^e$}
+    \caption{$L$: elastic}
     \label{fig:elastic_tracking}
   \end{subfigure}
 
@@ -873,7 +831,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         ymode=log,
         xlabel={$\epsilon$},
         ylabel={$\gamma$},
-        zlabel={$z$},
+        zlabel={$Z^{(b,1)}(\epsilon, \gamma)$},
         mesh/cols=5,
         xlabel style={yshift=-0.1cm},
         xticklabel style={yshift=0.2cm},
@@ -889,7 +847,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {berhu_eps_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$Z^b$}
+    \caption{$Z$: Berhu}
     \label{fig:berhu_eps}
   \end{subfigure}
   \hspace{0.5cm}
@@ -905,7 +863,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         ymode=log,
         xlabel={$\epsilon$},
         ylabel={$\gamma$},
-        zlabel={$z$},
+        zlabel={$C^{(b,1)}(\epsilon, \gamma)$},
         mesh/cols=5,
         xlabel style={yshift=-0.1cm},
         xticklabel style={yshift=0.2cm},
@@ -921,7 +879,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {berhu_corr_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$C^b$}
+    \caption{$C$: Berhu}
     \label{fig:berhu_corr}
   \end{subfigure}
   \hspace{0.5cm}
@@ -934,7 +892,7 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         ymode=log,
         xlabel={$\epsilon$},
         ylabel={$\gamma$},
-        zlabel={$z$},
+        zlabel={$L^{(b,1)}(\epsilon, \gamma)$},
         mesh/cols=5,
         point meta min=0,
         point meta max=7,
@@ -952,18 +910,30 @@ Graphs for various data points in both Berhu and Elastic Net iterations are disp
         {berhu_tracking_table.txt};
       \end{axis}
     \end{tikzpicture}
-    \caption{$O^b$}
+    \caption{$L$: Berhu}
     \label{fig:berhu_tracking}
   \end{subfigure}
 
-  \caption{Comparison of Elastic Net and Berhu optimization across below eps, correlation, and tracking error metrics.}
+  \caption{Comparison of Elastic Net and Berhu optimization across metrics.}
   \label{fig:all_graphs}
 \end{figure}
+
+\subsection{Selection of exogenous parameters}
+The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized portfolios. In an objective function with an Elastic Net penalty, the marginal cost of a trade $y$ is $\gamma[\beta + (1-\beta)y]$. With a Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, $\frac{\gamma y}{\epsilon}$ beyond. In Elastic Nets, the threshold past which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this coefficient. Meanwile, the Berhu penalty sets a specific threshold in $\epsilon$. This difference is reflected in Figure $\ref{fig:all_graphs}$. In the first row, the value on the $z-$ axis is contingent on both $\beta$ and $\gamma$. In the second, the $z$ value is impacted predominantly by one or the other, although both do influence it.
+
+Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty, which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
+
+We should select exogenous parameters in relation to the loss function. The relative magnitude of the penalty to the loss will define the strength of the downward or upward forces on weights.
+
+For elastic graphs in Figure $\ref{fig:all_graphs}$, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
+
+\subsection{Impacts of Berhu and Elastic Net Penalties}
 
 If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
 based on its consistency over a sample period. For example, a set of regularization parameters is ideal when they are the least
 aggressive while shrinking just enough number of trades to zero consistently throughout the sample period. An alpha gate is
 ideal when it prevents the hard total turnover from being hit most time.
+
 
 \section{Concluding Remarks}
 
