@@ -84,32 +84,14 @@
 \definecolor{codepurple}{rgb}{0.58,0,0.82}
 \definecolor{backcolour}{rgb}{0.98,0.98,0.98}
 
-% \lstdefinestyle{stsstyle}{
-%     backgroundcolor=\color{backcolour},
-%     commentstyle=\color{codegreen},
-%     keywordstyle=\color{blue},
-%     numberstyle=\tiny\color{codegray},
-%     stringstyle=\color{codepurple},
-%     basicstyle=\ttfamily\footnotesize,
-%     breakatwhitespace=false,
-%     breaklines=true,
-%     captionpos=b,
-%     keepspaces=true,
-%     numbers=left,
-%     numbersep=5pt,
-%     showspaces=false,
-%     showstringspaces=false,
-%     showtabs=false,
-%     tabsize=4
-% }
-% \lstset{style=stsstyle}
 
 \title{Penalized Portfolio Optimization}
 \author{Victor Ding}
 \affil{New Canaan High School}
 \date{\today}
-\begin{document}
 
+
+\begin{document}
 \maketitle
 
 \newpage
@@ -496,7 +478,7 @@ term. Therefore, Berhu's functions penalize the large outliers more aggressively
 
 \begin{figure}
 	\centering
-	\label{fig:huber_berhu}
+
 	\begin{tikzpicture}[scale=0.5, transform shape]
 
     %Huber's Function
@@ -530,6 +512,7 @@ term. Therefore, Berhu's functions penalize the large outliers more aggressively
     \end{scope}
     \end{tikzpicture}
     \caption{Huber's Loss (Left) and Berhu's Loss (Right)}
+    \label{fig:huber_berhu}
 \end{figure}
 This function is convex and continuous everywhere. That said, its piecewise nature makes it difficult to implement
 directly into a solver, as many solvers do not accept piecewise functions natively or have a designated Berhu function.
@@ -615,7 +598,7 @@ few metric series over time $k$:
 \item $o_k^{(m,i)}$: total turnover;
 \item $l_k^{(m,i)}$: realized loss $\lVert w_k-\tilde{w}_k\rVert_2^2$;
 \item $c_k^{(m,i)}$: correlation between optimized $w$ and target $\tilde{w}$;
-\item $z_k^{(m,i)}$: fraction of optimized trades with magnitude below $10^{-8}$.
+\item $z_k^{(m,i)}$: portion of optimized trades with magnitude below $10^{-8}$.
 \end{itemize}
 For the experiments involving the Elastic Net penalty
 \eqref{elastic_net_objective}, let $e(\beta, \gamma)$ be the experiment with parameter $(\beta, \gamma)$. We represent the
@@ -634,7 +617,7 @@ Based on these metric series, we define the following averages over $n$ days:
 	Z^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[z_k^{(b,i)}(\epsilon,\gamma) - z_k^{(0,i)}(\epsilon,\gamma)\right]}}, \\
 	L^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[l_k^{(a,i)}(\alpha) \div l_t^{(0,i)}(\alpha)\right]}}, \\
 	C^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(a,i)}(\alpha) - c_k^{(0,i)}(\alpha)\right]}}, \\
-	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[o_k^{(a,i)}(\alpha) - o_k^{(a,i)}(\alpha)\right]}}.
+	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[o_k^{(a,i)}(\alpha) - o_k^{(0,i)}(\alpha)\right]}}.
 \end{align*}
 
 \begin{table}[h]
@@ -648,7 +631,7 @@ Based on these metric series, we define the following averages over $n$ days:
   Average absolute position size $(\%)$ & $0.035$ & $0.035$ & $0.035$\\
   Average $\{o_k^{(0,i)}\}$ & $\approx 0.700$ & $\approx 0.700$ & $\approx 0.700$\\
   Average $\{c_k^{(0,i)}\}$ & $0.961$ & $0.984$ & $0.988$\\
-  Average $\{z_k^{(0,i)}\}$ & $994.1$ & $550.6$ & $355.7$ \\
+  Average $\{z_k^{(0,i)}\}$ & $0.452$ & $0.250$ & $0.162$ \\
   Average $\{l_k^{(0,i)}\}  (\times 10 ^ {-4} )$ & $4.068$ & $1.687$ & $1.319$\\
 \bottomrule
 \end{tabular}
@@ -897,19 +880,25 @@ series, we will focus on the speed $\mathcal{D}_1$ where total turnover constrai
   \label{fig:all_graphs}
 \end{figure}
 
-\subsection{Selection of Exogenous Parameters}
+
+\subsection{Impacts of Alpha Gating}
+Graphs with the Alpha penalty are displayed with metrics $L^{(a,1)}(\alpha)$, $C^{(a,1)}(\alpha)$, and $O^{(a,1)}(\alpha)$.
+For all iterations with the Alpha penalty, we set threshold $\tilde{T} = 0.4$ past which the penalty is incurred. All three graphs act as expected. $C$ and $O$ seem inversely related with $\alpha$, while $L$ is directly related.
+
+Figure \ref{fig:alpha_panels} shows $L^{(a,1)}(\alpha)$ rises sharply at first and then plateaus around $\alpha = 10$. This direct relationship is to be expected: the coefficient amplifies the effect of the penalty, increasing the loss.
+$C^{(a,1)}(\alpha)$ drops then plateaus when $\alpha = 10$, which is also expected since correlation would decrease as the penalty increased.
+$O^{(a,1)}(\alpha)$ decreases precipitously as $\alpha$ increases, then later asymptotes at a value of around $-0.28$. This implies the realized turnover approaches $0.42$.
+Considering that $T = 0.7$ and $\tilde{T} = 0.4$ and that constraints are binding, the penalty successfully acts as a soft barrier.
+The values of $\alpha$ we used in iterations were largely concentrated between $10^{-3}$ and $10^{-1}$ to observe the range with more rapid change in turnover.
+The asymptotes in the three graphs reveal that increasing $\alpha$ beyond $\approx 0.1$ results in close to no reduction in turnover $O^{(a,1)}(\alpha)$, but continues to slowly diminish correlation and increase loss.
+Past this point, there will no longer be significant value in increasing $\alpha$ if the goal is controlling turnover.
+
+\subsection{Selection of Berhu and Elastic Net Parameters}
 The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized portfolios. Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty, which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
 
 We should select exogenous parameters in relation to the loss function. The relative magnitude of the penalty to the loss will define the strength of the downward or upward forces on weights.
 
-For elastic graphs in Figure $\ref{fig:all_graphs}$, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
-
-\subsection{Impacts of Alpha Gating}
-Graphs for various data points in Alpha iterations are displayed in Figure \ref{fig:alpha_panels}.
-
-For all iterations with the Alpha penalty, we set threshold $\tilde{T} = 0.4$ past which the penalty is incurred. In figure \ref{fig:alpha_panels}, all three graphs act as expected. $C$ and $O$ seem inversely related with $\alpha$, while $L$ is directly related.
-
-Figure \ref{fig:alpha_panels} shows that total turnover reaches an asymptote as $\alpha$ increases. An asymptote of approximately $-0.28$ implies the realized turnover approaches $0.42$. Considering that $T = 0.7$ and $\tilde{T} = 0.4$ and that constraints are binding, the penalty successfully acts as a soft barrier. The values of $\alpha$ we used in iterations were largely concentrated between $10^{-3}$ and $10^{-1}$ to observe the range with more rapid change in turnover.
+For elastic graphs in Figure \ref{fig:all_graphs}, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
 
 \subsection{Impacts of Berhu and Elastic Net Penalties}
 
@@ -924,7 +913,7 @@ In an objective function with an Elastic Net penalty, the marginal cost of a tra
 With a Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, $\frac{\gamma y}{\epsilon}$ beyond.
 In Elastic Nets, the threshold under which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this coefficient.
 Meanwile, the Berhu penalty sets a specific threshold in $\epsilon$.
-This difference is reflected in Figure $\ref{fig:all_graphs}$.
+This difference is reflected in Figure \ref{fig:all_graphs}.
 In the Elastic Net graphs, the value on the $z-$axis is contingent on both $\beta$ and $\gamma$.
 In the Berhu graphs, the $z$ value is impacted predominantly by one or the other, although both do influence it.
 
@@ -936,7 +925,7 @@ first one concerns with rigid constraints that sometimes end up driving the solu
 constraint that can be stretched to some degree. The second one serves as a shrinkage mechanism, similar to variable selection
 in regression settings. The regularization methods introduced in Section \ref{sec:regularization} aims to eliminate noisy
 trades.
-6
+
 A main concern with penalty terms is that they tend to add noises to original objective functions. This is particularly true in
 the case of regularization methods. One way to mitigate the bias is to follow a common practice in regression studies. After
 identifying the relevant features, a regression is run with only the selected features. In the portfolio optimization, the noise
@@ -980,7 +969,6 @@ where
 	0 \leq u_i &\leq \delta, \\
 	v_i &\geq 0.
 \end{align*}
-% comment
 
 % Similar to \eqref{berhu_epigraph}, this can be reformulated with auxiliary variables $u_i\in [-\delta, \delta]$, $v_i^+\geq 0$,
 % and $v_i^-\geq 0$:
