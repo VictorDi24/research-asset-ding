@@ -122,8 +122,41 @@ This research reviews practical considerations of long-short portfolio optimizat
 address the limitation of pure constraints.
 \end{abstract}
 \newpage
-\section{Background of Portfolio Construction}
+\section{Introduction}
+Modern portfolio construction is fundamentally an optimization problem. Typically, a starting portfolio $\overline{w}$ with $n$ stocks is adjusted to a final portfolio $w$.
+The trades made in this transition incur costs and are often subject to restrictions defined by risk-aversion modeling.
+Position limits, factor-exposure limits, and turnover budgets are standard in quantitative equity management
+\cite{qian2007quantitative}.
+Models such as Markowitz's mean-variance framework \cite{markowitz1952portfolio} involve objectives and constraints that translate practical considerations into mathematical programs.
+Irrespective of the model, however, data utilized in these models are subject to error and could influence resulting portfolios with poor or aggressive signals.
+Section \ref{sec: Implementation Framework} discusses the practicalities of several core constraints and objective functions.
 
+Each constraint imposed on a portfolio decreases the feasible set of trades leading to a common concern that constraints "drive" the solution: an optimizer may satisfy them with little consideration of the objective function.
+A hard cap on turnover, for example, treats a small violation and a large one identically, potentially preventing a portfolio from considering strong signals whose payoff exceeds transaction costs.
+Many small trades are artifacts of estimation noise or are too small to justify transaction costs.
+However, imposing hard thresholds to eliminate them are arbitrary and are overly simplistic.
+
+This paper primarily studies two mechanisms for softening these rigidities. The first is a soft cap on total turnover, which allows an optimizer to exceed a specific threshold at a quadratic penalty.
+The second is a family of regularization penalties on individual turnovers.
+These induce sparsity in $w$ and protect against noisy trading.
+Both families of penalties are added directly to the objective function, although some are accompanied with necessary constraints.
+
+Certain penalties and constraints result in nonconvexity when implemented in their most primitive form, which impacts the solvability and efficiency of optimization.
+These restrictions are considered when they are introduced.
+
+The regularization penalties we consider are adapted have parallels with regression.
+Ridge regression \cite{hoerl1970ridge} shrinks coefficients smoothly; Lasso \cite{tibshirani1996lasso} promotes sparsity through an $L_1$ penalty; and the Elastic Net \cite{zou2005elasticnet} combines the two. Hybrid models with both Lasso and Ridge have been studied in regression \cite{owen2007robust}. We will consider the practical values in these approaches with portfolio optimization, considering the Berhu (Reverse Huber) penalty \cite{lambertlacroix2016berhu}.
+
+Our research proceeds as follows. After establishing a background framework in Section \ref{sec: Implementation Framework}, we formalize the Alpha gate as a soft total-turnover cap in Section \ref{sec:alpha_gate}.
+Additionally, we address concerns of non-convexity in our modeling.
+In section \ref{sec:regularization}, we apply Elastic Net and Berhu penalties.
+In doing so, we derive exact convex epigraph formulations suitable for DCP solvers, and contrast the penalties' effects.
+Section \ref{sec: experiments}, we report an empirical comparison on a proprietary dataset of trading signals. After this, we discuss parameter selection and compare the penalties.
+
+We do not attempt a comprehensive treatment of non-convex penalties or constraints. Penalties such as SCAD \cite{fan2001variable} and MCP \cite{zhang2010nearly} can in principle be implemented, but their non-convexity makes them difficult to operate at scale. We mention them as a direction for future work.
+
+\section{Implementation Framework}
+\label{sec: Implementation Framework}
 Modern portfolio construction involves optimizing an objective function defined over a vector of $n$ asset positions
 $w \in \mathds{R}^n$, where positive (negative) values represent long (short) positions. An example of a classic objective
 function is Markowitz's Mean-Variance framework:
@@ -162,9 +195,6 @@ Disciplined Convex Programming (DCP). DCP problems can be easily solved with DCP
 % Penalties occupy a middle-ground between an objective function and constraints; instead of placing a
 % hard boundary on portfolios, they discourage going past a certain threshold continuously. If an objective function
 % is minimized, penalties come in the form of added terms.
-
-
-\section{Implementation Framework}
 
 Let us focus on minimizing the family of objectives with a quadratic term $q(w)$, which captures the conventional Mean-Variance
 problem \eqref{mean-variance_objective} and target tracking problem \eqref{gamma_matrix}.
@@ -359,7 +389,6 @@ desirable to permit certain violations of hard constraints. To achieve this, we 
 Soft constraints allow such violations while discouraging large ones by adding a penalty to the objective. We will consider three
 distinct types of soft constraints: a turnover penalty, an Elastic Net, and a Berhu penalty.
 
-\subsection{Soft Cap of Total Turnover (Alpha Gating)}
 The trading from $w^*$ to $w$ incurs transaction costs. It is thus desirable to balance the objective function and turnover to
 avoid paying deterministic upfront costs on insignificant or uncertain transactions. Imposing a hard budge limit on total
 turnover, however, handicaps portfolio construction on achieving its objective. Instead, we should consider the potential
@@ -536,7 +565,392 @@ that the optimizer switches to quadratic penalties at very small turnover values
 exactly $0$. A larger $\epsilon$ means the penalty remains linear for a wider range of turnovers, penalizing large trades less
 aggressively. The choice of $\epsilon$ is highly sensitive to the data scales, and the nature of the data.
 
-\section{Huber's Loss for Target Tracking}
+\section{Numerical Experiments}
+\label{sec: experiments}
+We base our numerical experiments on a proprietary dataset provided by a hedge fund manager. The dataset contains $10$ years of
+daily trading signals for the most liquid US stocks. There are three signal series intended as target portfolio weights, varying
+in natural turnovers. They were generated from some quantitative models that were not concerned with various portfolio
+construction considerations. Our objective is to implement long-short portfolios that replicate these target weights as closely
+as possible subject to various constraints. We focus on a special form of loss function \eqref{gamma_matrix} with $\Gamma$ being
+an identity matrix,
+\begin{equation*}
+	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2,
+\end{equation*}
+where $\tilde{w}$ represents one of the model target weight vector.
+
+Let $\mathcal{D}_1$, $\mathcal{D}_2$, and $\mathcal{D}_3$ represent the three signal series from this dataset. Table
+\ref{tab:summary} contains their summary statistics. All the portfolio weights are net of their means and then normalized by the gross exposures. Because
+$\mathcal{D}_1$ has the highest natural turnover, the turnover constraints are most likely to bind for this series; we therefore
+use $\mathcal{D}_1$ as the main diagnostic series in the parameter studies below.
+\begin{table}
+	\centering
+  \caption{Summary Statistics of the Raw Dataset (01/04/2016 -- 12/31/2025)}\label{tab:summary}
+  \begin{tabular}{lrrr}
+    & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
+    \hline
+    Daily Average of Number of Qualified Stocks & $2,201$ & $2,201$ & $2,201$ \\
+    Daily Average of Meaningful Positions ($> 1^{-8}$) & $1,102$ & $1,103$ & $1,103$ \\
+    Daily Average of Total Turnover (\%) & $131.7$ & $91.83$ & $76.75$ \\
+    Daily Average of Position Standard Deviations & $.154$ & $0.159$ & $0.165$\\
+    Daily Average of Max Position Sizes (\%) & $1.400$ & $1.558$ & $1.810$\\
+    Daily Average of Max Change Magnitudes (\%) & $1.117$ & $0.957$ & $0.938$ \\
+  \end{tabular}
+\end{table}
+
+\subsection{Experimental Design and Metric Definitions}
+To maintain comparability, we define standard constraints for all the experiments:
+\begin{itemize}
+\item $\lvert w\rVert_1 = 2.$
+\item $-0.04 \leq w \leq 0.04$.
+\item $|w - w^*| \leq 0.02$.
+\item $\lVert w^* - w\rVert_1 \leq 0.7$.
+\item $-10^{-3} \leq \mathbf{S}w \leq 10^{-3}$, where $\mathbf{S}$ is a $30 \times n$ matrix containing various sector exposures.
+\item $e'w = 0$.
+\end{itemize}
+These constraints are quite normal in actual trading environments.
+
+We ran a baseline iteration with these standard constraints for signal series $\mathcal{D}_i$ where $i=1,2,3$. For each experiment and signal series, we computed
+few metric series over time $k$:
+\begin{itemize}
+\item $o_k^{(m,i)}$: total turnover;
+\item $l_k^{(m,i)}$: realized loss $\lVert w_k-\tilde{w}_k\rVert_2^2$;
+\item $c_k^{(m,i)}$: correlation between optimized $w$ and target $\tilde{w}$;
+\item $z_k^{(m,i)}$: fraction of optimized trades with magnitude below $10^{-8}$.
+\end{itemize}
+For the experiments involving the Elastic Net penalty
+\eqref{elastic_net_objective}, let $e(\beta, \gamma)$ be the experiment with parameter $(\beta, \gamma)$. We represent the
+corresponding metric series as $\{l_k^{(e,i)}(\beta=\cdot,\gamma=\cdot)\}$ (without the penalty term),
+$\{c_k^{(e,i)}(\beta,\gamma)\}$, and $\{z_k^{(e,i)}(\beta,\gamma)\}$, respectively.  Similarly for Berhu penalty
+\eqref{eq:berhu_loss}, we have $\{l_k^{(b,i)}(\epsilon,\gamma)\}$, $\{c_k^{(b,i)}(\epsilon,\gamma)\}$, and
+$\{z_k^{(b,i)}(\epsilon,\gamma)\}$, respectively. For iterations involving the Alpha penalty, we have $\{l_k^{(a,i)}(\alpha)\}$, $\{c_k^{(a,i)}(\alpha)\}$, and $\{o_k^{(a,i)}(\alpha)\}$.
+
+Based on these metric series, we define the following averages over $n$ days:
+\begin{align*}
+	L^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[l_k^{(e,i)}(\beta,\gamma) \div l_k^{(0,i)}(\beta,\gamma)\right]}}, \\
+	C^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(e,i)}(\beta,\gamma) - c_k^{(0,i)}(\beta,\gamma)\right]}}, \\
+	Z^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[z_k^{(e,i)}(\beta,\gamma) - z_k^{(0,i)}(\beta,\gamma)\right]}}, \\
+	L^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[l_k^{(b,i)}(\epsilon,\gamma) \div l_k^{(0,i)}(\epsilon,\gamma)\right]}}, \\
+	C^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(b,i)}(\epsilon,\gamma) - c_k^{(0,i)}(\epsilon,\gamma)\right]}}, \\
+	Z^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[z_k^{(b,i)}(\epsilon,\gamma) - z_k^{(0,i)}(\epsilon,\gamma)\right]}}, \\
+	L^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[l_k^{(a,i)}(\alpha) \div l_t^{(0,i)}(\alpha)\right]}}, \\
+	C^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(a,i)}(\alpha) - c_k^{(0,i)}(\alpha)\right]}}, \\
+	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[o_k^{(a,i)}(\alpha) - o_k^{(a,i)}(\alpha)\right]}}.
+\end{align*}
+
+\begin{table}[h]
+\centering
+\caption{Baseline Results}
+\label{tab:portfolio_metrics}
+\begin{tabular}{llll}
+  \toprule
+  & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
+  \midrule
+  Average absolute position size $(\%)$ & $0.035$ & $0.035$ & $0.035$\\
+  Average $\{o_k^{(0,i)}\}$ & $\approx 0.700$ & $\approx 0.700$ & $\approx 0.700$\\
+  Average $\{c_k^{(0,i)}\}$ & $0.961$ & $0.984$ & $0.988$\\
+  Average $\{z_k^{(0,i)}\}$ & $994.1$ & $550.6$ & $355.7$ \\
+  Average $\{l_k^{(0,i)}\}  (\times 10 ^ {-4} )$ & $4.068$ & $1.687$ & $1.319$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The baseline results are presented in table \ref{tab:portfolio_metrics}. Although we iterated once with all the three signal
+series, we will focus on the speed $\mathcal{D}_1$ where total turnover constraints are more likely to be binding.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[
+    group style={
+        group size=3 by 1,
+        horizontal sep=1.5cm,
+    },
+    width=0.34\textwidth,
+    height=6cm,
+    xmode=log, log basis x=10,
+    xmin=0.0008, xmax=20000,
+    grid=both,
+    grid style={line width=0.2pt, draw=gray!30},
+    major grid style={line width=0.4pt, draw=gray!50},
+    tick label style={font=\scriptsize},
+    label style={font=\small},
+    title style={font=\small},
+]
+
+\nextgroupplot[
+    ymin=1, ymax=5.2,
+    xlabel={$\alpha$},
+    ylabel={$L$},
+    title = {$L^{(a,1)}(\alpha)$}
+]
+\addplot[
+    color=green!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_tracking_table.txt};
+
+% ---corr ---
+\nextgroupplot[
+    ymin=-0.1, ymax=0,
+    xlabel={$\alpha$},
+    ylabel={$C$},
+    title={$C^{(a,1)}(\alpha)$},
+    scaled y ticks=false,
+    yticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=2,
+        /pgf/number format/zerofill,
+    },
+]
+\addplot[
+    color=yellow!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_corr_table.txt};
+
+
+% ---turnover ---
+\nextgroupplot[
+    ymin=-0.3, ymax=0,
+    xlabel={$\alpha$},
+    ylabel={$O$},
+    title={$O^{(a,1)}(\alpha)$},
+]
+\addplot[
+    color=blue!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_turnover_table.txt};
+
+\end{groupplot}
+\end{tikzpicture}
+\caption{Alpha penalty optimization across metrics.}
+\label{fig:alpha_panels}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  %
+  % ROW 1:: ELASTIC NET
+  %
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        gammascale,
+        xlabel={$\beta$},
+        zlabel={$Z$},
+        mesh/cols=3,
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_eps_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$Z^{(e,1)}(\beta, \gamma)$}
+    \label{fig:elastic_eps}
+  \end{subfigure}
+  \hspace{0.5cm}
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        gammascale,
+        scaled z ticks=false,
+        zticklabel style={/pgf/number format/fixed,
+          /pgf/number format/precision=2},
+        xlabel={$\beta$},
+        zlabel={$C$},
+        mesh/cols=3,
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_corr_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$C^{(e,1)}(\beta, \gamma)$}
+    \label{fig:elastic_corr}
+  \end{subfigure}
+  \hspace{0.5cm}
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        gammascale,
+        xlabel={$\beta$},
+        zlabel={$L$},
+        mesh/cols=3,
+        point meta min=0,
+        point meta max=7,
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=lambda_b, y=lambda_a, z=z]
+        {elastic_tracking_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$L^{(e,1)}(\beta, \gamma)$}
+    \label{fig:elastic_tracking}
+  \end{subfigure}
+
+  \vspace{0.3cm}
+  %
+  % BERHU GRAPHS: ROW 2
+  %
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        xmode=log,
+        ymode=log,
+        xlabel={$\epsilon$},
+        ylabel={$\gamma$},
+        zlabel={$Z$},
+        mesh/cols=5,
+        xlabel style={yshift=-0.1cm},
+        xticklabel style={yshift=0.2cm},
+        ytick={1e-5, 1e-3, 1e-1},
+        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+        yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_eps_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$Z^{(b,1)}(\epsilon, \gamma)$}
+    \label{fig:berhu_eps}
+  \end{subfigure}
+  \hspace{0.5cm}
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        scaled z ticks=false,
+        zticklabel style={/pgf/number format/fixed,
+          /pgf/number format/precision=2},
+        xmode=log,
+        ymode=log,
+        xlabel={$\epsilon$},
+        ylabel={$\gamma$},
+        zlabel={$C$},
+        mesh/cols=5,
+        xlabel style={yshift=-0.1cm},
+        xticklabel style={yshift=0.2cm},
+        ytick={1e-5, 1e-3, 1e-1},
+        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+        yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_corr_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$C^{(b,1)}(\epsilon, \gamma)$}
+    \label{fig:berhu_corr}
+  \end{subfigure}
+  \hspace{0.5cm}
+  \begin{subfigure}[b]{\sfw}
+    \centering
+    \begin{tikzpicture}
+      \begin{axis}[
+        my3dsurf,
+        xmode=log,
+        ymode=log,
+        xlabel={$\epsilon$},
+        ylabel={$\gamma$},
+        zlabel={$L$},
+        mesh/cols=5,
+        point meta min=0,
+        point meta max=7,
+        xlabel style={yshift=-0.1cm},
+        xticklabel style={yshift=0.2cm},
+        ytick={1e-5, 1e-3, 1e-1},
+        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
+        yticklabel style={yshift=0.2cm},
+        ]
+        \addplot3[
+        surf, shader=interp,
+        mesh/ordering=x varies,
+        ]
+        table[x=threshold, y=scale, z=z]
+        {berhu_tracking_table.txt};
+      \end{axis}
+    \end{tikzpicture}
+    \caption{$L^{(b,1)}(\epsilon, \gamma)$}
+    \label{fig:berhu_tracking}
+  \end{subfigure}
+
+  \caption{Comparison of Elastic Net and Berhu optimization across metrics.}
+  \label{fig:all_graphs}
+\end{figure}
+
+\subsection{Selection of Exogenous Parameters}
+The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized portfolios. Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty, which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
+
+We should select exogenous parameters in relation to the loss function. The relative magnitude of the penalty to the loss will define the strength of the downward or upward forces on weights.
+
+For elastic graphs in Figure $\ref{fig:all_graphs}$, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
+
+\subsection{Impacts of Alpha Gating}
+Graphs for various data points in Alpha iterations are displayed in Figure \ref{fig:alpha_panels}.
+
+For all iterations with the Alpha penalty, we set threshold $\tilde{T} = 0.4$ past which the penalty is incurred. In figure \ref{fig:alpha_panels}, all three graphs act as expected. $C$ and $O$ seem inversely related with $\alpha$, while $L$ is directly related.
+
+Figure \ref{fig:alpha_panels} shows that total turnover reaches an asymptote as $\alpha$ increases. An asymptote of approximately $-0.28$ implies the realized turnover approaches $0.42$. Considering that $T = 0.7$ and $\tilde{T} = 0.4$ and that constraints are binding, the penalty successfully acts as a soft barrier. The values of $\alpha$ we used in iterations were largely concentrated between $10^{-3}$ and $10^{-1}$ to observe the range with more rapid change in turnover.
+
+\subsection{Impacts of Berhu and Elastic Net Penalties}
+
+Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
+
+If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
+based on its consistency over a sample period. For example, a set of regularization parameters is ideal when they are the least
+aggressive while shrinking just enough number of trades to zero consistently throughout the sample period. An alpha gate is
+ideal when it prevents the hard total turnover from being hit most time.
+
+In an objective function with an Elastic Net penalty, the marginal cost of a trade $y$ is $\gamma[\beta + (1-\beta)y]$.
+With a Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, $\frac{\gamma y}{\epsilon}$ beyond.
+In Elastic Nets, the threshold under which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this coefficient.
+Meanwile, the Berhu penalty sets a specific threshold in $\epsilon$.
+This difference is reflected in Figure $\ref{fig:all_graphs}$.
+In the Elastic Net graphs, the value on the $z-$axis is contingent on both $\beta$ and $\gamma$.
+In the Berhu graphs, the $z$ value is impacted predominantly by one or the other, although both do influence it.
+
+\section{Concluding Remarks}
+
+The penalized portfolio optimization techniques studied in this paper address two deficiencies of the conventional approach. The
+first one concerns with rigid constraints that sometimes end up driving the solution. The alpha gate introduced in Section
+\ref{sec:alpha_gate} directly incorporate violation of a soft threshold in an objective function. It can be viewed as a flexible
+constraint that can be stretched to some degree. The second one serves as a shrinkage mechanism, similar to variable selection
+in regression settings. The regularization methods introduced in Section \ref{sec:regularization} aims to eliminate noisy
+trades.
+6
+A main concern with penalty terms is that they tend to add noises to original objective functions. This is particularly true in
+the case of regularization methods. One way to mitigate the bias is to follow a common practice in regression studies. After
+identifying the relevant features, a regression is run with only the selected features. In the portfolio optimization, the noise
+trades that fall below a tiny threshold from a penalized optimization can be forced to zero and another optimization is then
+performed without such a penalty term. This ensures that the optimal solution is not biased by regularization biases.
+
+Another way to mitigate penalty biases takes form of non-convex penalty functions. The SCAD penalty by \cite{fan2001variable}
+and the MCP penalty by \cite{zhang2010nearly} can be applied to $|w - w^*|$ to penalize turnovers. Like elastic net and Berhu,
+both penalty functions are non-differentiable at zero, allowing for sparsity. But unlike those convex penalities, they are
+concave elsewhere. Consequently, the marginal penalty gradually approaches zero as $\lVert w - w^* \rVert_1$ increases and the
+total penalty stops increasing. Effectively, such penalty forms set a ceiling on the penalty biases. However, non-convexity of
+these functions makes it very difficult to optimize.
+
+\subsection{Expansion: Huber's Loss for Target Tracking}
 \label{sec:huber_loss}
 Up to this point, the base objective family $q(\cdot)$ we used was a quadratic function along with some linear or quadratic penalty
 terms represented by $p(\cdot)$, an example of which is \eqref{gamma_matrix}. A target vector $\tilde{w}$ may represent a benchmark
@@ -589,374 +1003,6 @@ The loss function \eqref{huber_loss_deviation_epigraph} can be made the objectiv
 turnover gating, Elastic Net, or Berhu's Loss. In portfolio optimization, minimizing the squared tracking error is sensitive to
 outliers. The Huber's Loss based objective function penalizes larger $|w - \tilde{w}|$ less than the quadratic one. The value of $\lambda$ dictates how
 much the solver discourages responses to large outliers in $\tilde{w}$ above $\delta$.
-
-\section{Numerical Experiments}
-We base our numerical experiments on a proprietary dataset provided by a hedge fund manager. The dataset contains $10$ years of
-daily trading signals for the most liquid US stocks. There are three signal series intended as target portfolio weights, varying
-in natural turnovers. They were generated from some quantitative models that were not concerned with various portfolio
-construction considerations. Our objective is to implement long-short portfolios that replicate these target weights as closely
-as possible subject to various constraints. We focus on a special form of loss function \eqref{gamma_matrix} with $\Gamma$ being
-an identity matrix,
-\begin{equation*}
-	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2,
-\end{equation*}
-where $\tilde{w}$ represents one of the model target weight vector.
-
-Let $\mathcal{D}_1$, $\mathcal{D}_2$, and $\mathcal{D}_3$ represent the three signal series from this dataset. Table
-\ref{tab:summary} contains their summary statistics. All the portfolio weights are net of their means and then normalized by the gross exposures.
-\begin{table}
-	\centering
-  \caption{Summary Statistics of the Raw Dataset (01/04/2016 -- 12/31/2025)}\label{tab:summary}
-  \begin{tabular}{lrrr}
-    & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
-    \hline
-    Daily Average of Number of Qualified Stocks & $2201$ & $2201$ & $2201$ \\
-    Daily Average of Meaningful Positions ($> 1^{-8}$) & $1102$ & $1103$ & $1103$ \\
-    Daily Average of Total Turnover (\%) & $1.317$ & $0.9183$ & $0.7675$ \\
-    Daily Average of Portfolio Standard Deviations & $1.541 \cdot 10 ^ {-3}$ & $1.593 \cdot 10 ^ {-3}$ & $1.652 \cdot 10 ^ {-3}$\\
-    Daily Average of Max Position Sizes (\%) & $1.400 \cdot 10^{-2}$ & $1.558 \cdot 10^{-2}$ & $1.810 \cdot 10^{-2}$\\
-    Daily Average of Max Change Magnitudes (\%) & $1.117 \cdot 10^{-2}$ & $9.567 \cdot 10^{-3}$ & $9.376 \cdot 10^{-3}$ \\
-  \end{tabular}
-\end{table}
-
-To maintain comparability, we define standard constraints for all the experiments:
-\begin{enumerate}
-\item $\underline{w} = -0.04$ and $\overline{w} = 0.04$.
-\item $t = 0.02$.
-\item $\tilde{T} = 0.4$ and $T = 0.7$. In the absence of penalties, $\tilde{T} = 0$.
-\item $\underline{S} = -10^{-3}$ and $\overline{S} = 10^{-3}$. Effectively, the exposure in each attribute should be close to neutral, including net exposure.
-\item $G = 2$, meaning long and short exposure are $1$ and $-1$ respectively.
-\end{enumerate}
-These constraints are quite normal in actual trading environments.
-
-We ran a baseline iteration with these standard constraints for signal series $\mathcal{D}_i$ where $i=1,2,3$, and computed a
-few metric series over time $t$: total turnover $\{o_t^{(a,i)}\}$, realized loss functions $\{l_t^{(0,i)}\}$, correlation $\{c_t^{(0,i)}\}$ between optimized $w$
-and $\tilde{w}$, and fraction of optimized trades of magnitudes below $10^{-8}$ $\{z_t^{(0,i)}\}$.
-
-For each experiment, we compute the same set of metrics. For the experiments involving the Elastic Net penalty
-\eqref{elastic_net_objective}, let $e(\beta, \gamma)$ be the experiment with parameter $(\beta, \gamma)$. We represent the
-corresponding metric series as $\{l_t^{(e,i)}(\beta=\cdot,\gamma=\cdot)\}$ (without the penalty term),
-$\{c_t^{(e,i)}(\beta,\gamma)\}$, and $\{z_t^{(e,i)}(\beta,\gamma)\}$, respectively.  Similarly for Berhu penalty
-\eqref{eq:berhu_loss}, we have $\{l_t^{(b,i)}(\epsilon,\gamma)\}$, $\{c_t^{(b,i)}(\epsilon,\gamma)\}$, and
-$\{z_t^{(b,i)}(\epsilon,\gamma)\}$, respectively. For iterations involving the Alpha penalty, we have $\{l_t^{(a,i)}(\alpha)\}$, $\{c_t^{(a,i)}(\alpha)\}$, and $\{o_t^{(a,i)}(\alpha)\}$.
-
-Based on these metric series, we define the following averages over $n$ days:
-\begin{align*}
-	L^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[l_t^{(e,i)}(\beta,\gamma) \div l_t^{(0,i)}(\beta,\gamma)\right]}}, \\
-	C^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(e,i)}(\beta,\gamma) - c_t^{(0,i)}(\beta,\gamma)\right]}}, \\
-	Z^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[z_t^{(e,i)}(\beta,\gamma) - z_t^{(0,i)}(\beta,\gamma)\right]}}, \\
-	L^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[l_t^{(b,i)}(\epsilon,\gamma) \div l_t^{(0,i)}(\epsilon,\gamma)\right]}}, \\
-	C^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(b,i)}(\epsilon,\gamma) - c_t^{(0,i)}(\epsilon,\gamma)\right]}}, \\
-	Z^{(b,i)}(\epsilon,\gamma) &= \frac{1}{n}{\sum_{t=1}^n{\left[z_t^{(b,i)}(\epsilon,\gamma) - z_t^{(0,i)}(\epsilon,\gamma)\right]}}, \\
-	L^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[l_t^{(a,i)}(\alpha) \div l_t^{(0,i)}(\alpha)\right]}}, \\
-	C^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[c_t^{(a,i)}(\alpha) - c_t^{(0,i)}(\alpha)\right]}}, \\
-	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{t=1}^n{\left[o_t^{(a,i)}(\alpha) - o_t^{(a,i)}(\alpha)\right]}}.
-\end{align*}
-
-\begin{table}[h]
-\centering
-\caption{Baseline Results}
-\label{tab:portfolio_metrics}
-\begin{tabular}{llll}
-  \toprule
-  & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
-  \midrule
-  Average portfolio weight & \(\approx 0.0\) & \(\approx 0.0\) & \(\approx 0.0\)\\
-  Average absolute position exposure & $3.5357 \times 10^{-4}$ & $3.5373 \times 10^{-4}$ & $3.5356 \times 10^{-4}$\\
-  Average $\{o_t^{(0,i)}\}$ & $\approx 0.7000$ & $\approx 0.7000$ & $\approx 0.7000$\\
-  Average $\{c_t^{(0,i)}\}$ & $0.9610$ & $0.9841$ & $0.9880$\\
-  Average $\{z_t^{(0,i)}\}$ & $994.1$ & $550.6$ & $355.7$ \\
-  Average $\{l_t^{(0,i)}\}$ & $4.068 \cdot 10 ^ {-4}$ & $1.687 \cdot 10 ^ {-4}$ & $1.319 \cdot 10 ^ {-4}$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The baseline results are presented in table \ref{tab:portfolio_metrics}. Although we iterated once with all the three signal
-series, we will focus on the speed $\mathcal{D}_1$ where total turnover constraints are more likely to be binding.
-
-% discuss the choice of parameter searches.
-Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}. Graphs for various data points in Alpha iterations are displayed in Figure \ref{fig:alpha_panels}.
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{groupplot}[
-    group style={
-        group size=3 by 1,
-        horizontal sep=1.5cm,
-    },
-    width=0.34\textwidth,
-    height=5cm,
-    xmode=log, log basis x=10,
-    xmin=0.0008, xmax=20000,
-    grid=both,
-    grid style={line width=0.2pt, draw=gray!30},
-    major grid style={line width=0.4pt, draw=gray!50},
-    tick label style={font=\scriptsize},
-    label style={font=\small},
-    title style={font=\small},
-]
-
-\nextgroupplot[
-    ymin=1, ymax=5.2,
-    xlabel={$\alpha$},
-    ylabel={$L^{(a,1)}(\alpha)$},
-    title = {$L$: alpha}
-]
-\addplot[
-    color=green!90!black, mark=*, mark size=1.2pt, line width=1pt,
-] table[x=alpha, y=z, col sep=space] {alpha_tracking_table.txt};
-
-% ---corr ---
-\nextgroupplot[
-    ymin=-0.1, ymax=0,
-    xlabel={$\alpha$},
-    ylabel={$C^{(a,1)}(\alpha)$},
-    title={$C$: alpha},
-    scaled y ticks=false,
-    yticklabel style={
-        /pgf/number format/fixed,
-        /pgf/number format/precision=2,
-        /pgf/number format/zerofill,
-    },
-]
-\addplot[
-    color=yellow!90!black, mark=*, mark size=1.2pt, line width=1pt,
-] table[x=alpha, y=z, col sep=space] {alpha_corr_table.txt};
-
-
-% ---turnover ---
-\nextgroupplot[
-    ymin=-0.3, ymax=0,
-    xlabel={$\alpha$},
-    ylabel={$O^{(a,1)}(\alpha)$},
-    title={$O$: alpha},
-]
-\addplot[
-    color=blue!90!black, mark=*, mark size=1.2pt, line width=1pt,
-] table[x=alpha, y=z, col sep=space] {alpha_turnover_table.txt};
-
-\end{groupplot}
-\end{tikzpicture}
-\caption{Alpha penalty optimzation across metrics.}
-\label{fig:alpha_panels}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-  %
-  % ROW 1:: ELASTIC NET
-  %
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        gammascale,
-        xlabel={$\beta$},
-        zlabel={$Z^{(e,1)}(\beta, \gamma)$},
-        mesh/cols=3,
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=lambda_b, y=lambda_a, z=z]
-        {elastic_eps_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$Z$: elastic}
-    \label{fig:elastic_eps}
-  \end{subfigure}
-  \hspace{0.5cm}
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        gammascale,
-        scaled z ticks=false,
-        zticklabel style={/pgf/number format/fixed,
-          /pgf/number format/precision=2},
-        xlabel={$\beta$},
-        zlabel={$C^{(e,1)}(\beta, \gamma)$},
-        mesh/cols=3,
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=lambda_b, y=lambda_a, z=z]
-        {elastic_corr_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$C$: elastic}
-    \label{fig:elastic_corr}
-  \end{subfigure}
-  \hspace{0.5cm}
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        gammascale,
-        xlabel={$\beta$},
-        zlabel={$L^{(e,1)}(\beta, \gamma)$},
-        mesh/cols=3,
-        point meta min=0,
-        point meta max=7,
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=lambda_b, y=lambda_a, z=z]
-        {elastic_tracking_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$L$: elastic}
-    \label{fig:elastic_tracking}
-  \end{subfigure}
-
-  \vspace{0.3cm}
-  %
-  % BERHU GRAPHS: ROW 2
-  %
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        xmode=log,
-        ymode=log,
-        xlabel={$\epsilon$},
-        ylabel={$\gamma$},
-        zlabel={$Z^{(b,1)}(\epsilon, \gamma)$},
-        mesh/cols=5,
-        xlabel style={yshift=-0.1cm},
-        xticklabel style={yshift=0.2cm},
-        ytick={1e-5, 1e-3, 1e-1},
-        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
-        yticklabel style={yshift=0.2cm},
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=threshold, y=scale, z=z]
-        {berhu_eps_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$Z$: Berhu}
-    \label{fig:berhu_eps}
-  \end{subfigure}
-  \hspace{0.5cm}
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        scaled z ticks=false,
-        zticklabel style={/pgf/number format/fixed,
-          /pgf/number format/precision=2},
-        xmode=log,
-        ymode=log,
-        xlabel={$\epsilon$},
-        ylabel={$\gamma$},
-        zlabel={$C^{(b,1)}(\epsilon, \gamma)$},
-        mesh/cols=5,
-        xlabel style={yshift=-0.1cm},
-        xticklabel style={yshift=0.2cm},
-        ytick={1e-5, 1e-3, 1e-1},
-        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
-        yticklabel style={yshift=0.2cm},
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=threshold, y=scale, z=z]
-        {berhu_corr_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$C$: Berhu}
-    \label{fig:berhu_corr}
-  \end{subfigure}
-  \hspace{0.5cm}
-  \begin{subfigure}[b]{\sfw}
-    \centering
-    \begin{tikzpicture}
-      \begin{axis}[
-        my3dsurf,
-        xmode=log,
-        ymode=log,
-        xlabel={$\epsilon$},
-        ylabel={$\gamma$},
-        zlabel={$L^{(b,1)}(\epsilon, \gamma)$},
-        mesh/cols=5,
-        point meta min=0,
-        point meta max=7,
-        xlabel style={yshift=-0.1cm},
-        xticklabel style={yshift=0.2cm},
-        ytick={1e-5, 1e-3, 1e-1},
-        yticklabels={$10^{-5}$, $10^{-3}$, $10^{-1}$},
-        yticklabel style={yshift=0.2cm},
-        ]
-        \addplot3[
-        surf, shader=interp,
-        mesh/ordering=x varies,
-        ]
-        table[x=threshold, y=scale, z=z]
-        {berhu_tracking_table.txt};
-      \end{axis}
-    \end{tikzpicture}
-    \caption{$L$: Berhu}
-    \label{fig:berhu_tracking}
-  \end{subfigure}
-
-  \caption{Comparison of Elastic Net and Berhu optimization across metrics.}
-  \label{fig:all_graphs}
-\end{figure}
-
-\subsection{Selection of exogenous parameters}
-The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized portfolios. In an objective function with an Elastic Net penalty, the marginal cost of a trade $y$ is $\gamma[\beta + (1-\beta)y]$. With a Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, $\frac{\gamma y}{\epsilon}$ beyond. In Elastic Nets, the threshold past which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this coefficient. Meanwile, the Berhu penalty sets a specific threshold in $\epsilon$. This difference is reflected in Figure $\ref{fig:all_graphs}$. In the first row, the value on the $z-$ axis is contingent on both $\beta$ and $\gamma$. In the second, the $z$ value is impacted predominantly by one or the other, although both do influence it.
-
-Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty, which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
-
-We should select exogenous parameters in relation to the loss function. The relative magnitude of the penalty to the loss will define the strength of the downward or upward forces on weights.
-
-For elastic graphs in Figure $\ref{fig:all_graphs}$, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
-
-\subsection{Impacts of Berhu and Elastic Net Penalties}
-
-If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
-based on its consistency over a sample period. For example, a set of regularization parameters is ideal when they are the least
-aggressive while shrinking just enough number of trades to zero consistently throughout the sample period. An alpha gate is
-ideal when it prevents the hard total turnover from being hit most time.
-
-
-\section{Concluding Remarks}
-
-The penalized portfolio optimization techniques studied in this paper address two deficiencies of the conventional approach. The
-first one concerns with rigid constraints that sometimes end up driving the solution. The alpha gate introduced in Section
-\ref{sec:alpha_gate} directly incorporate violation of a soft threshold in an objective function. It can be viewed as a flexible
-constraint that can be stretched to some degree. The second one serves as a shrinkage mechanism, similar to variable selection
-in regression settings. The regularization methods introduced in Section \ref{sec:regularization} aims to eliminate noisy
-trades.
-6
-A main concern with penalty terms is that they tend to add noises to original objective functions. This is particularly true in
-the case of regularization methods. One way to mitigate the bias is to follow a common practice in regression studies. After
-identifying the relevant features, a regression is run with only the selected features. In the portfolio optimization, the noise
-trades that fall below a tiny threshold from a penalized optimization can be forced to zero and another optimization is then
-performed without such a penalty term. This ensures that the optimal solution is not biased by regularization biases.
-
-Another way to mitigate penalty biases takes form of non-convex penalty functions. The SCAD penalty by \cite{fan2001variable}
-and the MCP penalty by \cite{zhang2010nearly} can be applied to $|w - w^*|$ to penalize turnovers. Like elastic net and Berhu,
-both penalty functions are non-differentiable at zero, allowing for sparsity. But unlike those convex penalities, they are
-concave elsewhere. Consequently, the marginal penalty gradually approaches zero as $\lVert w - w^* \rVert_1$ increases and the
-total penalty stops increasing. Effectively, such penalty forms set a ceiling on the penalty biases. However, non-convexity of
-these functions makes it very difficult to optimize.
-
 
 %\newpage
 \bibliographystyle{plain}
