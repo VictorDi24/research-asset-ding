@@ -1,11 +1,3 @@
-% ==============================================================================
-% NTS: GUIDELINES
-% - Maximum 20 pages (excluding Title Page, Abstract, and References)
-% - 1.5 line spacing
-% - 1-inch margins on all sides
-% - 11pt font size
-% ============================================================================
-
 \documentclass[11pt, letterpaper]{article}
 
 %Formatting
@@ -336,11 +328,14 @@ resource-efficient manner when $n$ is reasonably large.
 One way to overcome this is forcing the sign of $\{w_i\}$ according to some rules prior to setting up the gross exposure
 constraint. Let $G^+ > 0$ be the desired long exposure, and $G^- < 0$ be the negative counterpart. The total gross exposure
 becomes $G^+ - G^- = G$. We propose to match the sign of $w$ to those of $\tilde{w}$ for all $i$ such that
-\begin{alignat*}{2}
-	\sum_{i\in\mathcal{W}^+} {w_i} &= G^+,\quad & \mathcal{W}^+=\{i|\tilde{w}_i > 0\},\\
-	\sum_{i\in\mathcal{W}^-} {w_i} &= G^-,\quad & \mathcal{W}^-=\{i|\tilde{w}_i < 0\},\\
-	\sum_{i\in\mathcal{W}^0} {w_i} &= 0, & \mathcal{W}^0=\{i|\tilde{w}_i = 0\}.
-\end{alignat*}
+\begin{equation}
+  \label{eq:gross_exposure}
+  \begin{aligned}
+    \sum_{i\in\mathcal{W}^+} {w_i} &= G^+,\quad & \mathcal{W}^+=\{i|\tilde{w}_i > 0\},\\
+    \sum_{i\in\mathcal{W}^-} {w_i} &= G^-,\quad & \mathcal{W}^-=\{i|\tilde{w}_i < 0\},\\
+    \sum_{i\in\mathcal{W}^0} {w_i} &= 0, & \mathcal{W}^0=\{i|\tilde{w}_i = 0\}.
+  \end{aligned}
+\end{equation}
 The price is that the feasible set is effectively shrunken, and consequently may not yield the same global optimal solution of
 the original problem.
 
@@ -550,6 +545,15 @@ aggressively. The choice of $\epsilon$ is highly sensitive to the data scales, a
 
 \section{Numerical Experiments}
 \label{sec: experiments}
+An ideal set of parameters should exert the least amount of influence while achieving the intended objectives.  For example, a
+set of regularization parameters for the elastic net or Berhu penalty is ideal when they are the least aggressive while
+shrinking just enough number of trades to zero consistently throughout the sample period. An alpha gate is ideal when it pushes
+the realized total turnover to narrowly fluctuate around a stable value between $\tilde[T]$ and $T$.
+
+If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
+based on its consistency over a sample period. In this section, we set out to study the behaviors of three penalty forms
+introduced so far.
+
 We base our numerical experiments on a proprietary dataset provided by a hedge fund manager. The dataset contains $10$ years of
 daily trading signals for the most liquid US stocks. There are three signal series intended as target portfolio weights, varying
 in natural turnovers. They were generated from some quantitative models that were not concerned with various portfolio
@@ -559,7 +563,7 @@ an identity matrix,
 \begin{equation*}
 	\underset{w}{\min} \lVert w - \tilde{w}\rVert_2^2,
 \end{equation*}
-where $\tilde{w}$ represents one of the model target weight vector.
+where $\tilde{w}$ represents one of the model target weight vectors.
 
 Let $\mathcal{D}_1$, $\mathcal{D}_2$, and $\mathcal{D}_3$ represent the three signal series from this dataset. Table
 \ref{tab:summary} contains their summary statistics. All the portfolio weights are net of their means and then normalized by the gross exposures. Because
@@ -572,7 +576,8 @@ use $\mathcal{D}_1$ as the main diagnostic series in the parameter studies below
     & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
     \hline
     Daily Average of Number of Qualified Stocks & $2,201$ & $2,201$ & $2,201$ \\
-    Daily Average of Meaningful Positions ($> 1^{-8}$) & $1,102$ & $1,103$ & $1,103$ \\
+    % Are you sure that the meaningful positions are checked with absolute values? these numbers look too much like half of the stocks.
+    Daily Average of Meaningful Positions ($|w_i| > 1^{-8}$) & $1,102$ & $1,103$ & $1,103$ \\
     Daily Average of Total Turnover (\%) & $131.7$ & $91.83$ & $76.75$ \\
     Daily Average of Position Standard Deviations & $.154$ & $0.159$ & $0.165$\\
     Daily Average of Max Position Sizes (\%) & $1.400$ & $1.558$ & $1.810$\\
@@ -581,33 +586,66 @@ use $\mathcal{D}_1$ as the main diagnostic series in the parameter studies below
 \end{table}
 
 \subsection{Experimental Design and Metric Definitions}
-To maintain comparability, we define standard constraints for all the experiments:
-\begin{itemize}
-\item $\lvert w\rVert_1 = 2.$
-\item $-0.04 \leq w \leq 0.04$.
-\item $|w - w^*| \leq 0.02$.
-\item $\lVert w^* - w\rVert_1 \leq 0.7$.
-\item $-10^{-3} \leq \mathbf{S}w \leq 10^{-3}$, where $\mathbf{S}$ is a $30 \times n$ matrix containing various sector exposures.
-\item $e'w = 0$.
-\end{itemize}
-These constraints are quite normal in actual trading environments.
+To maintain comparability, we define a common set of constraints for all the experiments:
+\begin{subequations}
+\begin{gather}
+  \lVert w\rVert_1 = 2,\label{eq:cons_gross} \\
+  e'w = 0, \label{eq:cons_net} \\
+  \lvert w\lvert \leq 0.04, \label{eq:cons_pos} \\
+  \lvert w - w^*\lvert \leq 0.02, \label{eq:cons_tvr} \\
+  \lVert w - w^*\rVert_1 \leq 0.7, \label{eq:cons_trc} \\
+  \lvert \mathbf{S}w \leq \rvert 0.001.\label{eq:cons_attr}
+\end{gather}
+\end{subequations}
+The rules in \eqref{eq:gross_exposure} are applied to eliminate the non-convexity due to the gross exposure constraint
+\eqref{eq:cons_gross}. The net exposure constraint \eqref{eq:cons_net}, along with \eqref{eq:cons_gross}, implies that both the
+total long and short book size equal to 1. Often portfolio weights are discussed in terms of long book sizes. But in our setup,
+all the portfolio units are normalized to 2 effectively. The position constraint \eqref{eq:cons_pos} limits all the positions
+below 4\% of the gross book size, while \eqref{eq:cons_tvr} limits the individual trades below 2\%. The total turnover
+constraint \eqref{eq:cons_trc} caps that at 70\%. The attribute matrix $\mathbf{S}$ in \eqref{eq:cons_attr} has 30 rows, which
+caps those exposures at 0.001. These constraints are quite normal in actual trading environments.
 
-We ran a baseline iteration with these standard constraints for signal series $\mathcal{D}_i$ where $i=1,2,3$. For each experiment and signal series, we computed
-few metric series over time $k$:
+For each experiment and signal series, we computed a few metric series on each day $k$:
 \begin{itemize}
-\item $o_k^{(m,i)}$: total turnover;
-\item $l_k^{(m,i)}$: realized loss $\lVert w_k-\tilde{w}_k\rVert_2^2$;
-\item $c_k^{(m,i)}$: correlation between optimized $w$ and target $\tilde{w}$;
-\item $z_k^{(m,i)}$: portion of optimized trades with magnitude below $10^{-8}$.
+\item $o_k^{(0,i)}$: realized total turnover $\lVert w - w^*\lVert_1$;
+\item $l_k^{(0,i)}$: realized loss function $\lVert w - \tilde{w}\rVert_2^2$;
+\item $c_k^{(0,i)}$: correlation between the optimal solution $w$ and target $\tilde{w}$ ;
+\item $z_k^{(0,i)}$: portion of optimized trades with magnitude below $10^{-8}$.
 \end{itemize}
-For the experiments involving the Elastic Net penalty
-\eqref{elastic_net_objective}, let $e(\beta, \gamma)$ be the experiment with parameter $(\beta, \gamma)$. We represent the
-corresponding metric series as $\{l_k^{(e,i)}(\beta=\cdot,\gamma=\cdot)\}$ (without the penalty term),
-$\{c_k^{(e,i)}(\beta,\gamma)\}$, and $\{z_k^{(e,i)}(\beta,\gamma)\}$, respectively.  Similarly for Berhu penalty
+
+We ran a baseline iteration with these standard constraints for signal series $\mathcal{D}_i$ where $i=1,2,3$.  The results are
+presented in table \ref{tab:portfolio_metrics}.
+\begin{table}
+\centering
+\caption{Baseline Results}
+\label{tab:portfolio_metrics}
+\begin{tabular}{llll}
+  \toprule
+  & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
+  \midrule
+  Average absolute position size $(\%)$ & $0.035$ & $0.035$ & $0.035$\\
+  Average $\{o_k^{(0,i)}\}$ & $0.700$ & $0.700$ & $0.700$\\
+  Average $\{c_k^{(0,i)}\}$ & $0.961$ & $0.984$ & $0.988$\\
+  Average $\{z_k^{(0,i)}\}$ & $0.452$ & $0.250$ & $0.162$ \\
+  Average $\{l_k^{(0,i)}\}  (\times 10 ^ {-4} )$ & $4.068$ & $1.687$ & $1.319$\\
+\bottomrule
+\end{tabular}
+\end{table}
+All the three signals have natural turnover over the limit of 70\%, causing the constraint \eqref{eq:cons_trc} to be binding
+across the board. The constraints also push the correlation between the solution weights and the target weights away from 1.
+Since the natural signal turnovers decrease from $\mathcal{D}_1$ to $\mathcal{D}_3$, the hard turnover limit
+places decreasing pressure on the solution. This is evident from the correlation between the solution weights and the target
+weights and the realized loss functions. There is decreasing distortion from the target in the solution from $\mathcal{D}_1$ to
+$\mathcal{D}_3$.
+
+For the experiments involving the Elastic Net penalty \eqref{elastic_net_objective}, let $e(\beta, \gamma)$ be the experiment
+with parameter $(\beta, \gamma)$. We represent the corresponding metric series as $\{l_k^{(e,i)}(\beta,\gamma)\}$ (without the
+penalty term), $\{c_k^{(e,i)}(\beta,\gamma)\}$, and $\{z_k^{(e,i)}(\beta,\gamma)\}$, respectively.  Similarly for Berhu penalty
 \eqref{eq:berhu_loss}, we have $\{l_k^{(b,i)}(\epsilon,\gamma)\}$, $\{c_k^{(b,i)}(\epsilon,\gamma)\}$, and
-$\{z_k^{(b,i)}(\epsilon,\gamma)\}$, respectively. For iterations involving the Alpha penalty, we have $\{l_k^{(a,i)}(\alpha)\}$, $\{c_k^{(a,i)}(\alpha)\}$, and $\{o_k^{(a,i)}(\alpha)\}$.
+$\{z_k^{(b,i)}(\epsilon,\gamma)\}$, respectively. For those involving the alpha penalty \eqref{eq:tvr-total}, we have
+$\{l_k^{(a,i)}(\alpha)\}$, $\{c_k^{(a,i)}(\alpha)\}$, and $\{o_k^{(a,i)}(\alpha)\}$ instead of $\{z_k^{(a,i)}(\alpha)\}$.
 
-Based on these metric series, we define the following averages over $n$ days:
+Based on these metric series, we calculated the following averages over $n$ days:
 \begin{align*}
 	L^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[l_k^{(e,i)}(\beta,\gamma) \div l_k^{(0,i)}(\beta,\gamma)\right]}}, \\
 	C^{(e,i)}(\beta,\gamma) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(e,i)}(\beta,\gamma) - c_k^{(0,i)}(\beta,\gamma)\right]}}, \\
@@ -619,26 +657,34 @@ Based on these metric series, we define the following averages over $n$ days:
 	C^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[c_k^{(a,i)}(\alpha) - c_k^{(0,i)}(\alpha)\right]}}, \\
 	O^{(a,i)}(\alpha) &= \frac{1}{n}{\sum_{k=1}^n{\left[o_k^{(a,i)}(\alpha) - o_k^{(0,i)}(\alpha)\right]}}.
 \end{align*}
+The loss ratio $L^{(\cdot,i)}$ represents the realized impact on the objective function of a penalty term for $\mathcal{D}_i$. A
+bigger value indicates that the penalty pushes the solutions further away from the original objective. The correlation
+difference $C^{(\cdot,i)}$ is another measure of the impact of a penalty function. An ideal portfolio should have a high
+correlation with the original signal, while a penalty term will likely decrease such a correlation. It is likely to be negative
+and decreases further as the penalty becomes more aggressive. The zero trade difference $Z^{(\cdot,i)}$ measures the
+effectiveness of a penalty term in trimming noise trades. The turnover difference $O^{(\cdot,i)}$ measures the effectiveness of
+a penalty in damping the total turnover below the hard threshold.
 
-\begin{table}[h]
-\centering
-\caption{Baseline Results}
-\label{tab:portfolio_metrics}
-\begin{tabular}{llll}
-  \toprule
-  & $\mathcal{D}_1$ & $\mathcal{D}_2$ & $\mathcal{D}_3$ \\
-  \midrule
-  Average absolute position size $(\%)$ & $0.035$ & $0.035$ & $0.035$\\
-  Average $\{o_k^{(0,i)}\}$ & $\approx 0.700$ & $\approx 0.700$ & $\approx 0.700$\\
-  Average $\{c_k^{(0,i)}\}$ & $0.961$ & $0.984$ & $0.988$\\
-  Average $\{z_k^{(0,i)}\}$ & $0.452$ & $0.250$ & $0.162$ \\
-  Average $\{l_k^{(0,i)}\}  (\times 10 ^ {-4} )$ & $4.068$ & $1.687$ & $1.319$\\
-\bottomrule
-\end{tabular}
-\end{table}
+For each parameter setting, we ran optimizations over the entire sample period for all the three signal series. They exhibit
+similar patterns. We shall base our discussions on the experiments on $\mathcal{D}_1$. The corresponding results of
+$\mathcal{D}_2$ and $\mathcal{D}_3$ are shown in the appendix.
 
-The baseline results are presented in table \ref{tab:portfolio_metrics}. Although we iterated once with all the three signal
-series, we will focus on the speed $\mathcal{D}_1$ where total turnover constraints are more likely to be binding.
+In choosing parameters for experiments, we start with a sparse set of parameters over a large range. After each batch run, we
+then focus on the range of parameters that have more desirable properties with finer grid of parameters. A few iterations are
+usually carried out. This helps reduce the search space. But that also reduces in denser scenarios in some areas of parameter
+space, and sparser elsewhere.
+
+\subsection{Impacts of Alpha Gating}
+Given the hard total turnover limit $0.7$, we fix the soft bound $\tilde{T}$ to $0.4$ for our experiments of alpha gating.  The
+$\alpha$ parameter in \eqref{eq:tvr-total} dictates the relative importance between the loss function and the quadratic excess
+of total turnover over the soft threshold. The loss function is basically a sum of squared individual turnovers from the target
+weights, while the penalty term is a squared total turnover from the initial positions in excess of a constant. Since
+$\lVert w - \tilde{w}\rVert_2^2$ is less than $\lVert w - \tilde{w}\rVert_1^2$, a unit of $\alpha$ is more significant than a
+unit of change in the loss function.
+
+Plots of metrics $L^{(a,1)}(\alpha)$, $C^{(a,1)}(\alpha)$, and $O^{(a,1)}(\alpha)$ in relation of the penalty parameter $\alpha$
+are shown in Figure \ref{fig:alpha_panels}.
+
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}
@@ -700,9 +746,45 @@ series, we will focus on the speed $\mathcal{D}_1$ where total turnover constrai
 
 \end{groupplot}
 \end{tikzpicture}
-\caption{Alpha penalty optimization across metrics.}
+\caption{Alpha Gating}
 \label{fig:alpha_panels}
 \end{figure}
+
+The penalty starts kicking in once the total turnover exceeds $0.4$. All three graphs act as expected. $C$ and $O$ seem
+inversely related with $\alpha$, while $L$ is directly related.
+
+The loss ratio $L^{(a,1)}(\alpha)$ rises sharply at first and then plateaus around $\alpha = 10$. This direct relationship is to
+be expected: the coefficient amplifies the effect of the penalty, increasing the loss.  $C^{(a,1)}(\alpha)$ drops then plateaus
+when $\alpha = 10$, which is also expected since correlation would decrease as the penalty increased.  $O^{(a,1)}(\alpha)$
+decreases precipitously as $\alpha$ increases, then later asymptotes at a value of around $-0.28$. This implies the realized
+turnover approaches $0.42$.  Considering that $T = 0.7$ and $\tilde{T} = 0.4$ and that constraints are binding, the penalty
+successfully acts as a soft barrier.  The values of $\alpha$ we used in iterations were largely concentrated between $10^{-3}$
+and $10^{-1}$ to observe the range with more rapid change in turnover.  The asymptotes in the three graphs reveal that
+increasing $\alpha$ beyond $\approx 0.1$ results in close to no reduction in turnover $O^{(a,1)}(\alpha)$, but continues to
+slowly diminish correlation and increase loss.  Past this point, there will no longer be significant value in increasing
+$\alpha$ if the goal is controlling turnover.
+
+A drop in realized total turnover as much as 20\% can be achieved with a relative small $\alpha$, while the correlation between
+the target and realized portfolio only drops by about 2\%. At the same time, the realized loss function almost doubles with such
+a penalty. The increases in the loss function is somewhat expected because reduction in turnovers will almost always increase
+the loss function irrespective of either a soft or a hard limit.
+
+\subsection{Impacts of Berhu and Elastic Net Penalties}
+The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized
+portfolios. Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty,
+which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade
+size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
+
+For elastic graphs in Figure \ref{fig:all_graphs}, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties,
+while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. A $\beta$ of zero is not meaningful in
+trimming of noise trades. A $\beta$ of 1 is also unlikely to be desirable because a pure Lasso form is very sensitive to highly
+correlated features. In our use cases, some trades are bound to be correlated so that the solution may result in great variation
+in picking zero trades.
+
+For Berhu graphs, $\epsilon$ within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, matching the typical target weights,
+while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
+
+Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
 
 \begin{figure}[h]
   \centering
@@ -880,42 +962,25 @@ series, we will focus on the speed $\mathcal{D}_1$ where total turnover constrai
   \label{fig:all_graphs}
 \end{figure}
 
+In an objective function with an Elastic Net penalty, the marginal cost of a trade $y$ is $\gamma[\beta + (1-\beta)y]$.  With a
+Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, and $\frac{\gamma y}{\epsilon}$ elsewhere.  In Elastic Nets, the
+threshold under which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this
+coefficient. Meanwhile, an increase in $\gamma$ in a Berhu penalty is reflected directly on the $L_1$ penalty as long as $y$
+falls below $\epsilon$.  This difference is reflected in the plots of $Z^{(e,1)}$ and $Z^{(b,1)}$ in Figure
+\ref{fig:all_graphs}. In general, $Z^{(e,1)}$ is not very sensitive to the choice $\beta$ except when $\beta$ is below 0.5.
 
-\subsection{Impacts of Alpha Gating}
-Graphs with the Alpha penalty are displayed with metrics $L^{(a,1)}(\alpha)$, $C^{(a,1)}(\alpha)$, and $O^{(a,1)}(\alpha)$.
-For all iterations with the Alpha penalty, we set threshold $\tilde{T} = 0.4$ past which the penalty is incurred. All three graphs act as expected. $C$ and $O$ seem inversely related with $\alpha$, while $L$ is directly related.
+Where $Z^{(e,1)}$ is insensitive to $\gamma$, a bigger $\gamma$ still negatively impacts $C^{(e,1)}$ and $L^{(e,1)}$,
+continuously pushing the solution away from the target. Therefore, a sensible strategy calls for a sufficiently large $\beta$
+while keeping $\gamma$ as small as possible in an elastic net penalty.
 
-Figure \ref{fig:alpha_panels} shows $L^{(a,1)}(\alpha)$ rises sharply at first and then plateaus around $\alpha = 10$. This direct relationship is to be expected: the coefficient amplifies the effect of the penalty, increasing the loss.
-$C^{(a,1)}(\alpha)$ drops then plateaus when $\alpha = 10$, which is also expected since correlation would decrease as the penalty increased.
-$O^{(a,1)}(\alpha)$ decreases precipitously as $\alpha$ increases, then later asymptotes at a value of around $-0.28$. This implies the realized turnover approaches $0.42$.
-Considering that $T = 0.7$ and $\tilde{T} = 0.4$ and that constraints are binding, the penalty successfully acts as a soft barrier.
-The values of $\alpha$ we used in iterations were largely concentrated between $10^{-3}$ and $10^{-1}$ to observe the range with more rapid change in turnover.
-The asymptotes in the three graphs reveal that increasing $\alpha$ beyond $\approx 0.1$ results in close to no reduction in turnover $O^{(a,1)}(\alpha)$, but continues to slowly diminish correlation and increase loss.
-Past this point, there will no longer be significant value in increasing $\alpha$ if the goal is controlling turnover.
-
-\subsection{Selection of Berhu and Elastic Net Parameters}
-The values of $\epsilon$ and $\beta$ in Berhu and Elastic Net penalties respectively have disparate effects on optimized portfolios. Elastic Net is similar to dialing two switches. The $L_1$ penalty discourages small trades and the $L_2$ penalty, which almost always is active, discourages sparsity. In practice, the penalty applies both effects at each trade size. Meanwhile, Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones.
-
-We should select exogenous parameters in relation to the loss function. The relative magnitude of the penalty to the loss will define the strength of the downward or upward forces on weights.
-
-For elastic graphs in Figure \ref{fig:all_graphs}, a $\beta$ range of $(0,1]$ was selected to consider balancing the penalties, while $\gamma$ was selected within a range of $[5 \cdot 10^{-3}, 6 \cdot 10^{-2}]$. For Berhu graphs, $\epsilon$ was within a range of $(10^{-5}, 5 \cdot 10^{-4})$ was selected, while $\gamma$ was selected within a range of $[5 \cdot 10^{-5},10^{-1}]$.
-
-\subsection{Impacts of Berhu and Elastic Net Penalties}
-
-Graphs for various data points in both Berhu and Elastic Net iterations are displayed in Figure \ref{fig:all_graphs}.
-
-If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
-based on its consistency over a sample period. For example, a set of regularization parameters is ideal when they are the least
-aggressive while shrinking just enough number of trades to zero consistently throughout the sample period. An alpha gate is
-ideal when it prevents the hard total turnover from being hit most time.
-
-In an objective function with an Elastic Net penalty, the marginal cost of a trade $y$ is $\gamma[\beta + (1-\beta)y]$.
-With a Berhu penalty, it becomes $\gamma$ for $y \leq \epsilon$, $\frac{\gamma y}{\epsilon}$ beyond.
-In Elastic Nets, the threshold under which smaller trades are penalized hinges on the value of $\gamma \beta$, as the $L_1$ penalty gains this coefficient.
-Meanwile, the Berhu penalty sets a specific threshold in $\epsilon$.
-This difference is reflected in Figure \ref{fig:all_graphs}.
-In the Elastic Net graphs, the value on the $z-$axis is contingent on both $\beta$ and $\gamma$.
-In the Berhu graphs, the $z$ value is impacted predominantly by one or the other, although both do influence it.
+That is very different from the Berhu cases, where a large $\gamma$ increases the sensitivity of $Z^{(b,1)}$ to $\epsilon$,
+decreases the sensitivities of both $C^{(b,1)}$ and $L^{(b,1)}$. Overall, $Z^{(b,1)}$ is very sensitive to $\epsilon$ across all
+the choices of $\gamma$. However, a small $\epsilon$ may cause $Z^{(b,1)}$ to stay above 0, meaning that the penalty increases
+number of noise trades. A small $\epsilon$ will subject an increasing number of trades to $L2$ penalty, spreading small trades
+instead of pruning them. Therefore, it is critical to choose an $\epsilon$ that allow $L1$ penalty to be effective over a decent
+portion of a portfolio. With an appropriate $\epsilon$, $C^{(b,1)}$ has a larger flat area of relatively high values, meaning
+less correlation difference from the baseline values. This implies that a proper choice of $\epsilon$ affords more room to find
+a superior solution to elastic nets as long as only a modest number of noise trades need to be pruned.
 
 \section{Concluding Remarks}
 
@@ -939,15 +1004,9 @@ concave elsewhere. Consequently, the marginal penalty gradually approaches zero 
 total penalty stops increasing. Effectively, such penalty forms set a ceiling on the penalty biases. However, non-convexity of
 these functions makes it very difficult to optimize.
 
-\subsection{Expansion: Huber's Loss for Target Tracking}
-\label{sec:huber_loss}
-Up to this point, the base objective family $q(\cdot)$ we used was a quadratic function along with some linear or quadratic penalty
-terms represented by $p(\cdot)$, an example of which is \eqref{gamma_matrix}. A target vector $\tilde{w}$ may represent a benchmark
-portfolio or a model driven portfolio. It is often desirable to form portfolios as close as possible to such a given portfolio
-subject to various constraints.
-
-The Huber's Loss function \eqref{huber_loss} is particularly interesting as an alternative objective function. For an individual tracking error $x_i = w_i - \tilde{w}_i$, and a threshold parameter $\delta$, the
-Huber's Loss function can be written as
+Another line of research studies alternative form of loss functions. The Huber's Loss function \eqref{huber_loss} is
+particularly interesting as an alternative objective function. For an individual tracking error $x_i = w_i - \tilde{w}_i$, and a
+threshold parameter $\delta$, the Huber's Loss function can be written as
 \begin{equation*}
   h(x_i) = \begin{cases}
     \frac{x_i^2}{2\delta} & \text{if } x_i \leq \delta, \\
@@ -992,7 +1051,8 @@ turnover gating, Elastic Net, or Berhu's Loss. In portfolio optimization, minimi
 outliers. The Huber's Loss based objective function penalizes larger $|w - \tilde{w}|$ less than the quadratic one. The value of $\lambda$ dictates how
 much the solver discourages responses to large outliers in $\tilde{w}$ above $\delta$.
 
-%\newpage
+\appendix
+
 \bibliographystyle{plain}
 \nocite{*}
 \bibliography{references}
