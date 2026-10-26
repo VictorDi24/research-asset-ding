@@ -20,6 +20,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 copy_results = BASE_DIR / "copy_results"
 python_graphs = BASE_DIR / "python_graphs"
+latex_stock = BASE_DIR / "latex_stock"
 stacked_berhu = copy_results / "berhu_stacked.npz"
 stacked_elastic = copy_results / "elastic_stacked.npz"
 stacked_alpha = copy_results / "alpha_stacked.npz"
@@ -29,87 +30,87 @@ arr = BASE_DIR / "arr.npz"
 #
 # NTS: Take ratio of tracking error, difference of correlation, difference of turnover
 #
-def alpha_turnover():
-    type = "alpha"
-    data = np.load(stacked_alpha)
-    turnover = data["turnover"].astype(float)
+def alpha (metric : str = "turnover", speed : int = 0, baseline_eps : float = 1E-8):
+    if metric == "turnover":
+        type = "alpha"
+        data = np.load(stacked_alpha)
+        turnover = data["turnover"][:,:,speed].astype(float)
 
-    raw_data = np.load(no_penalty)
-    raw_turnover = raw_data["turnover"].astype(float)
+        raw_data = np.load(no_penalty)
+        raw_turnover = raw_data["turnover"][:,speed].astype(float)
 
-    turnover_diff = turnover - raw_turnover
-    z_values = np.nanmean(turnover_diff, axis=(1, 2))
+        turnover_diff = turnover - raw_turnover
+        z_values = np.nanmean(turnover_diff, axis = 1)
 
-    rows = []
+        rows = []
 
-    for i in range(len(z_values)):
-        z_val = z_values[i].item()
-        rows.append((z_val))
-
-    # rows.sort(key=lambda r: (r[0], r[1]))
-
-    with open(python_graphs / f"{type}_turnover_table.txt", "w") as f:
-        f.write("z\n")
-        for z_val in rows:
-            f.write(f"{z_val:.6f}\n")
-    return turnover_diff
-
-
-def alpha_correlation():
-    data = np.load(stacked_alpha)
-    corr = data["correlation"].astype(float)
-
-    raw_data = np.load(no_penalty)
-    raw_corr = raw_data["correlation"].astype(float)
-
-    corr_diff = corr - raw_corr
-    z_values = np.nanmean(corr_diff, axis=(1, 2))
-
-    rows = []
-
-    for i in range(len(z_values)):
-        z_val = z_values[i].item()
-        rows.append((z_val))
-
-    with open(python_graphs / "alpha_corr_table.txt", "w") as f:
-        f.write("z\n")
-        for z_val in rows:
-            f.write(f"{z_val:.6f}\n")
-
-    return corr_diff
-
-def alpha_tracking_error(baseline_eps: float = 1e-8):
-    data = np.load(stacked_alpha)
-    tracking = data["tracking_error"].astype(float)
-
-    raw_data = np.load(no_penalty)
-    raw_tracking = raw_data["tracking_error"].astype(float)
-    raw_num_stocks = raw_data["num_stocks"].astype(float)
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        ratio = tracking / raw_tracking
-
-    valid_baseline = raw_tracking > baseline_eps
-
-    ratio = np.where(valid_baseline, ratio, np.nan)
-
-    z_values = np.nanmean(ratio, axis=(1, 2))
-
-    rows = []
-
-    for i in range(len(z_values)):
-        z_val = z_values[i].item()
-        if not np.isnan(z_val):
+        for i in range(len(z_values)):
+            z_val = z_values[i].item()
             rows.append((z_val))
 
-    # rows.sort(key=lambda r: (r[0], r[1]))
+        # rows.sort(key=lambda r: (r[0], r[1]))
 
-    with open(python_graphs / "alpha_tracking_table.txt", "w") as f:
-        f.write("z\n")
-        for z_val in rows:
-            f.write(f"{z_val:.6f}\n")
+        with open(latex_stock / f"{type}_{speed}_turnover_table.txt", "w") as f:
+            f.write("z\n")
+            for z_val in rows:
+                f.write(f"{z_val:.6f}\n")
+        return turnover_diff
 
-    return ratio
+    if metric == "correlation":
+        data = np.load(stacked_alpha)
+        corr = data["correlation"][:,:,speed].astype(float)
+
+        raw_data = np.load(no_penalty)
+        raw_corr = raw_data["correlation"][:,speed].astype(float)
+
+        corr_diff = corr - raw_corr
+        z_values = np.nanmean(corr_diff, axis = 1)
+
+        rows = []
+
+        for i in range(len(z_values)):
+            z_val = z_values[i].item()
+            rows.append((z_val))
+
+        with open(latex_stock / f"alpha_{speed}_corr_table.txt", "w") as f:
+            f.write("z\n")
+            for z_val in rows:
+                f.write(f"{z_val:.6f}\n")
+
+        return corr_diff
+
+    if metric == "tracking":
+        data = np.load(stacked_alpha)
+        tracking = data["tracking_error"][:,:,speed].astype(float)
+
+        raw_data = np.load(no_penalty)
+        raw_tracking = raw_data["tracking_error"][:,speed].astype(float)
+        raw_num_stocks = raw_data["num_stocks"][:,speed].astype(float)
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            ratio = tracking / raw_tracking
+
+        valid_baseline = raw_tracking > baseline_eps
+
+        ratio = np.where(valid_baseline, ratio, np.nan)
+
+        z_values = np.nanmean(ratio, axis = 1)
+
+        rows = []
+
+        for i in range(len(z_values)):
+            z_val = z_values[i].item()
+            if not np.isnan(z_val):
+                rows.append((z_val))
+
+        # rows.sort(key=lambda r: (r[0], r[1]))
+
+        with open(latex_stock / f"alpha_{speed}_tracking_table.txt", "w") as f:
+            f.write("z\n")
+            for z_val in rows:
+                f.write(f"{z_val:.6f}\n")
+
+        return ratio
 
 def speed_turnover():
     data = np.load(arr)
@@ -140,27 +141,27 @@ def speed_turnover():
 
     return slow_turnover, med_turnover, fast_turnover
 
-def below_eps(type : str = "elastic"):
+def below_eps(speed: int = 0, type : str = "elastic"):
     if type == "berhu":
         data = np.load(stacked_berhu)
-        eps = data["below_eps"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        eps = data["below_eps"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
     elif type == "elastic":
         data = np.load(stacked_elastic)
-        eps = data["below_eps"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        eps = data["below_eps"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
     else:
         print("input doesn't match a type, using elastic instead")
         data = np.load(stacked_elastic)
-        eps = data["below_eps"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        eps = data["below_eps"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
 
     raw_data = np.load(no_penalty)
-    raw_eps = raw_data["below_eps"].astype(float)
-    raw_num_stocks = raw_data["num_stocks"].astype(float)
+    raw_eps = raw_data["below_eps"][:,speed].astype(float)
+    raw_num_stocks = raw_data["num_stocks"][:,speed].astype(float)
     raw_param = raw_data["parameters"]
 
     if raw_eps.ndim == 3:
@@ -171,7 +172,7 @@ def below_eps(type : str = "elastic"):
     raw_frac = raw_eps / np.where(raw_num_stocks > 0, raw_num_stocks, np.nan)
 
     eps_diff = frac - raw_frac
-    z_values = np.nanmean(eps_diff, axis=(1, 2))
+    z_values = np.nanmean(eps_diff, axis=1)
 
     rows = []
 
@@ -184,7 +185,7 @@ def below_eps(type : str = "elastic"):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / "berhu_eps_table.txt", "w") as f:
+        with open(python_graphs / f"berhu_{speed}_eps_table.txt", "w") as f:
             f.write("scale threshold z\n")
             for scale_val, thresh_val, z_val in rows:
                 f.write(f"{scale_val:.6f} {thresh_val:.6f} {z_val:.6f}\n")
@@ -197,7 +198,7 @@ def below_eps(type : str = "elastic"):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / "elastic_eps_table.txt", "w") as f:
+        with open(python_graphs / f"elastic_{speed}_eps_table.txt", "w") as f:
             f.write("lambda_a lambda_b z\n")
             for lambda_a_val, lambda_b_val, z_val in rows:
                 f.write(f"{lambda_a_val:.6f} {lambda_b_val:.6f} {z_val:.6f}\n")
@@ -205,27 +206,27 @@ def below_eps(type : str = "elastic"):
     return eps_diff
 
 
-def correlation(type : str = "elastic"):
+def correlation(speed: int = 0, type : str = "elastic"):
     if type == "berhu":
         data = np.load(stacked_berhu)
-        corr = data["correlation"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        corr = data["correlation"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
     elif type == "elastic":
         data = np.load(stacked_elastic)
-        corr = data["correlation"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        corr = data["correlation"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
     else:
         print("input doesn't match a type, using elastic instead")
         data = np.load(stacked_elastic)
-        corr = data["correlation"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        corr = data["correlation"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
 
     raw_data = np.load(no_penalty)
-    raw_corr = raw_data["correlation"].astype(float)
-    raw_num_stocks = raw_data["num_stocks"].astype(float)
+    raw_corr = raw_data["correlation"][:,speed].astype(float)
+    raw_num_stocks = raw_data["num_stocks"][:,speed].astype(float)
     raw_param = raw_data["parameters"]
 
     if raw_corr.ndim == 3:
@@ -233,7 +234,7 @@ def correlation(type : str = "elastic"):
         raw_num_stocks = raw_num_stocks[0]
 
     corr_diff = corr - raw_corr
-    z_values = np.nanmean(corr_diff, axis=(1, 2))
+    z_values = np.nanmean(corr_diff, axis=1)
 
     rows = []
 
@@ -246,7 +247,7 @@ def correlation(type : str = "elastic"):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / f"{type}_corr_table.txt", "w") as f:
+        with open(python_graphs / f"{type}_{speed}_corr_table.txt", "w") as f:
             f.write("scale threshold z\n")
             for scale_val, thresh_val, z_val in rows:
                 f.write(f"{scale_val:.6f} {thresh_val:.6f} {z_val:.6f}\n")
@@ -259,30 +260,30 @@ def correlation(type : str = "elastic"):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / f"{type}_corr_table.txt", "w") as f:
+        with open(python_graphs / f"{type}_{speed}_corr_table.txt", "w") as f:
             f.write("lambda_a lambda_b z\n")
             for lambda_a_val, lambda_b_val, z_val in rows:
                 f.write(f"{lambda_a_val:.6f} {lambda_b_val:.6f} {z_val:.6f}\n")
 
     return corr_diff
 
-def tracking_error(type: str = "elastic", baseline_eps: float = 1e-8):
+def tracking_error(speed : int = 0, type: str = "elastic", baseline_eps: float = 1e-8):
     if type == "berhu":
         data = np.load(stacked_berhu)
-        tracking = data["tracking_error"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        tracking = data["tracking_error"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
     else:
         if type != "elastic":
             print("input doesn't match a type, using elastic instead")
         data = np.load(stacked_elastic)
-        tracking = data["tracking_error"].astype(float)
-        num_stocks = data["num_stocks"].astype(float)
+        tracking = data["tracking_error"][:,:,speed].astype(float)
+        num_stocks = data["num_stocks"][:,:,speed].astype(float)
         param = data["parameters"]
 
     raw_data = np.load(no_penalty)
-    raw_tracking = raw_data["tracking_error"].astype(float)
-    raw_num_stocks = raw_data["num_stocks"].astype(float)
+    raw_tracking = raw_data["tracking_error"][:,speed].astype(float)
+    raw_num_stocks = raw_data["num_stocks"][:,speed].astype(float)
 
     if raw_tracking.ndim == 3:
         raw_tracking = raw_tracking[0]
@@ -298,7 +299,7 @@ def tracking_error(type: str = "elastic", baseline_eps: float = 1e-8):
 
     ratio = np.where(valid_baseline, ratio, np.nan)
 
-    z_values = np.nanmean(ratio, axis=(1, 2))
+    z_values = np.nanmean(ratio, axis=1)
 
     rows = []
 
@@ -312,7 +313,7 @@ def tracking_error(type: str = "elastic", baseline_eps: float = 1e-8):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / "berhu_tracking_table.txt", "w") as f:
+        with open(python_graphs / f"berhu_{speed}_tracking_table.txt", "w") as f:
             f.write("scale threshold z\n")
             for scale_val, thresh_val, z_val in rows:
                 f.write(f"{scale_val:.6f} {thresh_val:.6f} {z_val:.6f}\n")
@@ -326,7 +327,7 @@ def tracking_error(type: str = "elastic", baseline_eps: float = 1e-8):
 
         rows.sort(key=lambda r: (r[0], r[1]))
 
-        with open(python_graphs / "elastic_tracking_table.txt", "w") as f:
+        with open(python_graphs / f"elastic_{speed}_tracking_table.txt", "w") as f:
             f.write("lambda_a lambda_b z\n")
             for lambda_a_val, lambda_b_val, z_val in rows:
                 f.write(f"{lambda_a_val:.6f} {lambda_b_val:.6f} {z_val:.6f}\n")
