@@ -1856,6 +1856,245 @@ def get_cases(results_folder):
                 },
             }
         ),
-
+        "elastic_a_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.005,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_b_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.01,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_c_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.015,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_d_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.02,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_e_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.025,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_f_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.03,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_g_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.035,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_h_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.04,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_i_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.045,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_j_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.05,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_k_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.055,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_l_full_11": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.06,
+                    "lambda_b" : 0.3,
+                },
+            }
+        ),
+        "elastic_a_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.005,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_b_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.01,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_c_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.015,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_d_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.02,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_e_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.025,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_f_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.03,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_g_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.035,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_h_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.04,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_i_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.045,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_j_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.05,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_k_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.055,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
+        "elastic_l_full_12": (
+            loop_optimization,
+            {
+                "portfolio_class": elastic_net,
+                "portfolio_kwargs": {
+                    "lambda_a" : 0.06,
+                    "lambda_b" : 0.7,
+                },
+            }
+        ),
     }
     return cases
