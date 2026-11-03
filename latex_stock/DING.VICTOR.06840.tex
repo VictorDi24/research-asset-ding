@@ -596,6 +596,14 @@ constraint \eqref{eq:cons_trc} caps that at 70\%. The attribute matrix $\mathbf{
 corresponding to the most important 30 risk attributes, which caps those exposures at 0.001. These constraints are quite common
 in actual trading environments.
 
+Let the first trading day of the dataset be day 0. For each day $k=1, 2, \dots, d$, the starting positions $w^*$ of each signal
+series $\mathcal{D}_i$ are set to the target positions $\tilde{w}$ of that series from day $k-1$ and the signals from day $k$
+are used as the target positions for that day. The underlying assumption is that each day's targets are perfectly realized. This
+allows us to solve each day independently rather than tracking realized positions that are path-dependent. Since the purpose of
+this study is to investigate the characteristics of various penalty forms, this setup isolates the optimization problems from
+cumulative effects of constraints and penalties over time. On each day, the same attribute matrix $\mathbf{S}$ is used for all
+three signals to facilitate comparisons across series.
+
 The experiments are built on top of the CVXPY modeling layer \cite{cvxpy}. As a robustness check, we ran the optimizations with
 both Clarabel \cite{Clarabel_2024} and PIQP \cite{schwan2023piqp}, two recent efficient solvers with native sparse-matrix
 support, and obtained consistent results. The Position constraints \eqref{eq:cons_pos} and individual turnover constraints
