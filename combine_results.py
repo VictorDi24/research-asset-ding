@@ -30,59 +30,18 @@ arrays = []
 
 port_type = "alpha"
 
+#---------------
+# Additional elastic runs
+# ---------------
+
+
 # ---------------
 # ALPHA TURNOVER
 # --------------
 def main():
-    paths = []
-    for prefix in coarse_prefixes:
-        paths.append(results_folder / f"results_{port_type}_{prefix}_full.npz")
-    if not paths:
-        raise RuntimeError("No input files to process")
-
-    with np.load(paths[0]) as f:
-        labels = sorted(f.files)
-        shapes = {k: f[k].shape for k in labels}
-        dtypes = {k: f[k].dtype for k in labels}
-
-    for p in paths:
-        with np.load(p) as f:
-            # if sorted(f.files) != labels:
-            #     raise ValueError(f"{p.name}: keys differ from first file")
-            for k in labels:
-                if f[k].shape != shapes[k]:
-                    raise ValueError(
-                        f"{p.name}: {k} shape {f[k].shape} != {shapes[k]}"
-                    )
-
-    # Stack one label at a time to bound peak memory
-    out_path = copied_results_folder / f"{port_type}_turnover_stacked_all.npz"
-    stacked = {}
-    n = len(paths)
-
-    for label in labels:
-        total_shape = (n, *shapes[label])
-        buf = np.empty(total_shape, dtype=dtypes[label])
-        for i, p in enumerate(paths):
-            with np.load(p) as f:
-                buf[i] = f[label]
-        stacked[label] = buf
-        print(f"stacked {label}: {buf.shape}")
-
-    np.savez_compressed(out_path, **stacked)
-    print(f"wrote {out_path}")
-
-
-    # -----------------
-    # ELASTIC NET AND BERHU
     # paths = []
     # for prefix in coarse_prefixes:
-    #     for i in coarse_indices:
-    #         paths.append(copied_results_folder / f"results_{port_type}_{prefix}_full_{i}_copy.npz")
-    # for prefix in fine_prefixes:
-    #     for i in fine_indices:
-    #         paths.append(copied_results_folder / f"results_{port_type}_{prefix}_full_{i}_copy.npz")
-
+    #     paths.append(results_folder / f"results_{port_type}_{prefix}_full.npz")
     # if not paths:
     #     raise RuntimeError("No input files to process")
 
@@ -93,8 +52,8 @@ def main():
 
     # for p in paths:
     #     with np.load(p) as f:
-    #         if sorted(f.files) != labels:
-    #             raise ValueError(f"{p.name}: keys differ from first file")
+    #         # if sorted(f.files) != labels:
+    #         #     raise ValueError(f"{p.name}: keys differ from first file")
     #         for k in labels:
     #             if f[k].shape != shapes[k]:
     #                 raise ValueError(
@@ -102,7 +61,7 @@ def main():
     #                 )
 
     # # Stack one label at a time to bound peak memory
-    # out_path = copied_results_folder / f"{port_type}_stacked.npz"
+    # out_path = copied_results_folder / f"{port_type}_turnover_stacked_all.npz"
     # stacked = {}
     # n = len(paths)
 
@@ -117,6 +76,56 @@ def main():
 
     # np.savez_compressed(out_path, **stacked)
     # print(f"wrote {out_path}")
+
+
+    # -----------------
+    # ELASTIC NET AND BERHU
+    #
+    port_type = "elastic"
+
+    indices = [11, 12]
+    prefixes = ['a', 'b', 'c', 'd', 'e', 'f',
+                'g', 'h', 'i', 'j', 'k', 'l']
+
+    paths = []
+    for prefix in prefixes:
+        for i in indices:
+            paths.append(results_folder / f"results_{port_type}_{prefix}_full_{i}.npz")
+
+    if not paths:
+        raise RuntimeError("No input files to process")
+
+    with np.load(paths[0]) as f:
+        labels = sorted(f.files)
+        shapes = {k: f[k].shape for k in labels}
+        dtypes = {k: f[k].dtype for k in labels}
+
+    for p in paths:
+        with np.load(p) as f:
+            if sorted(f.files) != labels:
+                raise ValueError(f"{p.name}: keys differ from first file")
+            for k in labels:
+                if f[k].shape != shapes[k]:
+                    raise ValueError(
+                        f"{p.name}: {k} shape {f[k].shape} != {shapes[k]}"
+                    )
+
+    # Stack one label at a time to bound peak memory
+    out_path = copied_results_folder / f"{port_type}_stacked_added.npz"
+    stacked = {}
+    n = len(paths)
+
+    for label in labels:
+        total_shape = (n, *shapes[label])
+        buf = np.empty(total_shape, dtype=dtypes[label])
+        for i, p in enumerate(paths):
+            with np.load(p) as f:
+                buf[i] = f[label]
+        stacked[label] = buf
+        print(f"stacked {label}: {buf.shape}")
+
+    np.savez_compressed(out_path, **stacked)
+    print(f"wrote {out_path}")
 
 
 if __name__ == "__main__":

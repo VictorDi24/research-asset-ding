@@ -84,7 +84,7 @@ address the limitations of pure constraints.
 The Alpha Gate penalizes excess turnover above a soft threshold, with a higher hard bound acting as a strict
 safeguard. Regularization penalties widely used in regression are adapted to prune noisy trades. Elastic Net and the Berhu
 function both use \(L_1\) and \(L_2\) penalties on turnovers, but differently: Elastic Net keeps both active at every trade
-size, whereas Berhu applies \(L_1\) below a threshold and \(L_2\) above it.
+size, whereas the Berhu Penalty applies \(L_1\) below a threshold and \(L_2\) above it.
 
 We run various experiments with these penalties on ten years of daily long-short equity signals, evaluating turnover control,
 target-tracking loss, and trade sparsity across parameter ranges.
@@ -812,7 +812,7 @@ target weights in our dataset, while $\gamma$ was selected over $[5 \times 10^{-
         gammascale,
         xlabel={$\beta$},
         zlabel={$Z$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -836,7 +836,7 @@ target weights in our dataset, while $\gamma$ was selected over $[5 \times 10^{-
           /pgf/number format/precision=2},
         xlabel={$\beta$},
         zlabel={$C$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -857,7 +857,7 @@ target weights in our dataset, while $\gamma$ was selected over $[5 \times 10^{-
         gammascale,
         xlabel={$\beta$},
         zlabel={$L$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -1167,7 +1167,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$Z$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -1191,7 +1191,7 @@ More systematic procedures and objective criteria to select penalty parameters a
           /pgf/number format/precision=2},
         xlabel={$\beta$},
         zlabel={$C$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -1212,7 +1212,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$L$},
-        mesh/cols=3,
+        mesh/cols=5,
         point meta min=0,
         point meta max=7,
         ]
@@ -1340,7 +1340,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$Z$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -1364,7 +1364,7 @@ More systematic procedures and objective criteria to select penalty parameters a
           /pgf/number format/precision=2},
         xlabel={$\beta$},
         zlabel={$C$},
-        mesh/cols=3,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
@@ -1385,7 +1385,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$L$},
-        mesh/cols=3,
+        mesh/cols=5,
         point meta min=0,
         point meta max=7,
         ]
