@@ -533,14 +533,19 @@ the nature of data.
 
 \section{Numerical Experiments}
 \label{sec:experiments}
-An ideal set of penalty parameters should exert the least amount of influence while achieving the intended objectives.  For
-example, a set of regularization parameters for Elastic Net or Berhu penalty is ideal when they are the least aggressive while
-shrinking just enough number of trades to zero consistently. An Alpha Gate is ideal when it pushes the realized total turnover
-to narrowly fluctuate around a preferred stable level between $\tilde{T}$ and $T$.
+Penalty terms do not affect the feasible set of an optimization problem defined by some constraints; they merely reshape the
+contour sets of the objective function. An ideal set of penalty parameters should exert the least amount of influence while
+achieving the intended objectives. For example, a set of regularization parameters for Elastic Net or Berhu penalty is ideal
+when they are the least aggressive while shrinking just enough number of trades to zero consistently. An Alpha Gate is ideal
+when it pushes the realized total turnover to narrowly fluctuate around a preferred stable level between $\tilde{T}$ and
+$T$. Intuitively, penalty terms in our convex setting are used to tweak the point of the contour sets meeting the feasibility
+set such that the joint is close to the original solution without penalties and possess desired properties.
 
-If the target portfolio weights are derived with some stable modeling process, a set of penalty parameters can be evaluated
-based on its consistency over a sample period. In this section, we set out to study the behaviors of three penalty forms
-introduced so far.
+The effect of a penalty term depends on the shape of the feasible set and the contour sets of the objective. No universal
+parameterization can be recommended across problems. If both the target portfolio weights and constraint matrices are derived
+with a stable modeling process, a set of penalty parameters may be evaluated by its consistency, effectiveness, and
+distortion from the unpenalized solution over a sample period. The experiments below study the solutions with the three
+penalty forms and introduce a few evaulation metrics.
 
 We base our numerical experiments on a proprietary dataset provided by a hedge fund manager. The dataset contains $10$ years of
 daily trading signals for the most liquid US stocks and their attribute matrices. There are three signal series intended as
@@ -554,9 +559,9 @@ these target weights as closely as possible subject to various constraints. We f
 where $\tilde{w}$ represents a target model weight vector.
 
 Let $\mathcal{D}_1$, $\mathcal{D}_2$, and $\mathcal{D}_3$ represent the three signal series from this dataset. Table
-\ref{tab:summary} contains their summary statistics. All the portfolio weights are net of their means and then normalized by the gross exposures. Because
-$\mathcal{D}_1$ has the highest natural turnovers, the turnover constraints are most likely to bind for this series; we therefore
-use $\mathcal{D}_1$ as the main diagnostic series in the studies below.
+\ref{tab:summary} contains their summary statistics. All the portfolio weights are net of their means and then normalized by the
+gross exposures. Because $\mathcal{D}_1$ has the highest natural turnovers, the turnover constraints are most likely to bind for
+this series; we therefore use $\mathcal{D}_1$ as the main diagnostic series in the studies below.
 \begin{table}
 	\centering
   \caption{Summary Statistics of the Raw Dataset (01/04/2016 -- 12/31/2025)}\label{tab:summary}
@@ -969,9 +974,9 @@ $L_1$ penalty as long as $|y|$ falls below $\epsilon$, beyond which the penalty 
 mainly responsible for trade sparsity. Their difference is reflected in the plots of $Z^{(e,1)}$ and $Z^{(b,1)}$.
 
 In general, $Z^{(e,1)}$ is not very sensitive to the choice $\beta$ except when $\beta$ is below 0.5. Where $Z^{(e,1)}$ is
-insensitive to $\gamma$, a bigger $\gamma$ still negatively impacts $C^{(e,1)}$ and $L^{(e,1)}$, continuously pushing the
-solution away from the target. Therefore, a sensible strategy calls for a reasonably large $\beta$ while keeping $\gamma$ as
-small as possible in an Elastic Net penalty.
+insensitive to $\gamma$ for $\beta$ above 0.5, a bigger $\gamma$ still negatively impacts $C^{(e,1)}$ and $L^{(e,1)}$,
+continuously pushing the solution away from the target. Therefore, a sensible strategy calls for a reasonably large $\beta$ to
+achieve a desired level of pruning while keeping $\gamma$ as small as possible in an Elastic Net penalty.
 
 That is quite different from the Berhu cases, where a large $\gamma$ increases the sensitivity of $Z^{(b,1)}$ to $\epsilon$, but
 decreases the sensitivities of both $C^{(b,1)}$ and $L^{(b,1)}$. Overall, $Z^{(b,1)}$ is very sensitive to $\epsilon$ across all
@@ -1167,7 +1172,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$Z$},
-        mesh/cols=5,
+        mesh/cols=5, mesh/rows=12,
         ]
         \addplot3[
         surf, shader=interp,
