@@ -19,6 +19,15 @@
 
 \newcommand{\sfw}{0.30\textwidth}
 
+\usepackage{fancyhdr}
+
+\fancypagestyle{myright}{
+    \fancyhf{}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
 \pgfplotsset{
     gammascale/.style={
         scaled y ticks=false,
@@ -91,7 +100,7 @@ target-tracking loss, and trade sparsity across parameter ranges.
 \end{abstract}
 
 \newpage
-\pagestyle{plain}
+\pagestyle{myright}
 \setcounter{page}{1}
 
 \section{Introduction}
@@ -279,7 +288,7 @@ conditions \cite{boyd2004KKT} define the framework for determining optimality.
 
 In an optimization setting with quadratic objective function, a positive semi-definite Hessian matrix ensures the convexity of
 the objective. When constraints are affine, the feasible set is also convex. Under such conditions, a local optimal minimum is
-also the global minimum and its solution can be calculated via DCP.
+also the global minimum.
 
 A well-behaved covariance matrix $\Sigma$ in \eqref{mean-variance_objective} is positive semi-definite, so is $\Gamma$ in
 \eqref{gamma_matrix}. Almost all the constraints discussed so far are also convex except for gross exposure.
@@ -797,12 +806,12 @@ always active, spreads trades and discourages very large ones. The penalty appli
 Berhu is a pure $L_1$ penalty for small trades and a pure $L_2$ penalty for large ones. Both penalty forms also penalize
 turnovers as a side effect. Plots of Berhu and Elastic Net experiments are displayed in Figure \ref{fig:d1_berhu_elastic}.
 
-In the plots of Elastic Nets, parameter $\beta$ took values over $(0,1]$, and $\gamma$ over
-$[5 \times 10^{-3}, 6 \times 10^{-2}]$. A zero $\beta$ is not meaningful in pruning noisy trades. A $\beta$ of 1 is also unlikely
-to be desirable because a pure Lasso form is very sensitive to highly correlated features. In our use cases, some trades are
-bound to be correlated so that the solutions with $\beta=1$ may also result in great variation in selecting which trades to
-prune. In the plots of Berhu penalties, parameter $\epsilon$ was spread over $(10^{-5}, 5 \times 10^{-4})$, matching the typical
-target weights in our dataset, while $\gamma$ was selected over $[5 \times 10^{-5},10^{-1}]$.
+In the plots of Elastic Nets, parameter $\beta$ takes values over $(0,1]$, and $\gamma$ over
+$[5 \times 10^{-3}, 6 \times 10^{-2}]$. A zero $\beta$ is not meaningful in pruning noisy trades. A $\beta$ of 1 is also
+unlikely to be desirable because a pure Lasso form is very sensitive to highly correlated features. In our use cases, some
+trades are bound to be correlated so that the solutions with $\beta=1$ may also result in great variation in selecting which
+trades to prune. In the plots of Berhu penalties, parameter $\epsilon$ was spread over $(10^{-5}, 5 \times 10^{-4})$, matching
+the typical target weights in our dataset, while $\gamma$ was selected over $[5 \times 10^{-5},10^{-1}]$.
 
 \begin{figure}[ht]
   \centering
@@ -988,11 +997,20 @@ their sensitivity to $\gamma$ is higher with Berhu penalties than with Elastic N
 A small $\epsilon$, however, may cause $Z^{(b,1)}$ to drop below 0, meaning that Berhu penalties may actually increase numbers
 of noisy trades. Intuitively, a smaller $\epsilon$ subjects a greater number of trades to $L_2$ penalty, spreading small trades
 instead of pruning them. Therefore, it is critical to choose an $\epsilon$ that makes $L_1$ penalty effective over a decent
-portion of a portfolio.
+portion of a portfolio. At the same time, $\epsilon$ allows for direct control over which trades are eligible for pruning.
 
-With an appropriate $\epsilon$, $C^{(b,1)}$ has a larger flat area of relatively high values, where correlations stay close to
-the baseline value. This implies that a proper choice of $\epsilon$ affords more room to find a superior choice of $\gamma$ to
-Elastic Nets as long as only a modest number of noisy trades need to be pruned.
+At similar levels of $Z^{(b,1)}$ and $Z^{(e,1)}$, $C^{(b,1)}$ is generally less than $C^{(e,1)}$ and $L^{(b,1)}$ greater than
+$L^{(e,1)}$. This is a consequence of how each penalty is tuned. Let $\gamma^{(e)}$ and $\gamma^{(b)}$ be the $\gamma$
+parameters of the Elastic Net and Berhu penalties, respectively. Because $Z^{(e,\cdot)}$ ($Z^{(b,\cdot)}$) is mainly driven by
+$\gamma^{(e)}\beta$ ($\gamma^{(b)}$), similar sparsity is approximately matched by $\gamma^{(b)}\approx\gamma^{(e)}\beta$. In
+such a case, the quadratic branch in the Berhu has coefficient $\frac{\gamma^{(b)}}{2\epsilon}$, which is greater than
+coefficient $\frac{\gamma^{(e)}(1-\beta)}{2}$ on the quadratic term in the Elastic Net whenever $\epsilon<\beta/(1-\beta)$. In
+our experiments $\epsilon$ is set approximately on the order of typical trade size, so this condition holds comfortably in our
+parameter combinations. The Berhu penalty therefore shrinks surviving trades far more than the Elastic Net penalty at comparable
+sparsity.
+
+The two penalty forms are therefore not strictly ordered. At comparable sparsity the Elastic Net results in less distortion of
+the objective function, but the Berhu penalty gives more control over allocation of trade sparsity.
 
 \section{Concluding Remarks}
 \label{sec:conclusion}
@@ -1172,7 +1190,7 @@ More systematic procedures and objective criteria to select penalty parameters a
         gammascale,
         xlabel={$\beta$},
         zlabel={$Z$},
-        mesh/cols=5, mesh/rows=12,
+        mesh/cols=5,
         ]
         \addplot3[
         surf, shader=interp,
