@@ -1,0 +1,10 @@
+practice_draft_graphs/
+drafts/
+*.out
+*.fls
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.log
+*.synctex.gz
