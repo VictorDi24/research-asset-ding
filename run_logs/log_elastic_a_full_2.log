@@ -1,6 +1,0 @@
-10:17:48 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_elastic_a_full_2.log
-10:17:48 [INFO] --- CLI Execution: Starting elastic_a_full_2 ---
-10:17:50 [DEBUG] day=113 speed=0 solver_status=infeasible
-10:17:50 [WARNING] FAILED day=113 speed=0 time=0.6651s key=char_20150701
-10:17:52 [DEBUG] day=114 speed=0 solver_status=infeasible
-10:17:52 [WARNING] FAILED day=114 speed=0 time=1.6553s key=char_20150702
