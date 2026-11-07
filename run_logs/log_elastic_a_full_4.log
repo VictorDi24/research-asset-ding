@@ -1,0 +1,102 @@
+23:36:52 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_elastic_a_full_4.log
+23:36:52 [INFO] --- CLI Execution: Starting elastic_a_full_4 ---
+23:36:55 [DEBUG] day=113 speed=0 solver_status=infeasible
+23:36:55 [WARNING] FAILED day=113 speed=0 time=1.1640s key=char_20150701
+23:37:35 [INFO] Optimizations completed: 100 / 8298
+23:38:16 [INFO] Optimizations completed: 200 / 8298
+23:38:57 [INFO] Optimizations completed: 300 / 8298
+23:39:37 [INFO] Optimizations completed: 400 / 8298
+23:40:19 [INFO] Optimizations completed: 500 / 8298
+23:41:00 [INFO] Optimizations completed: 600 / 8298
+23:41:43 [INFO] Optimizations completed: 700 / 8298
+23:42:25 [INFO] Optimizations completed: 800 / 8298
+23:43:05 [INFO] Optimizations completed: 900 / 8298
+23:43:46 [INFO] Optimizations completed: 1000 / 8298
+23:44:26 [INFO] Optimizations completed: 1100 / 8298
+23:45:07 [INFO] Optimizations completed: 1200 / 8298
+23:45:48 [INFO] Optimizations completed: 1300 / 8298
+23:46:12 [DEBUG] day=564 speed=0 solver_status=infeasible
+23:46:12 [WARNING] FAILED day=564 speed=0 time=1.1693s key=char_20170417
+23:46:32 [INFO] Optimizations completed: 1400 / 8298
+23:47:14 [INFO] Optimizations completed: 1500 / 8298
+23:47:58 [INFO] Optimizations completed: 1600 / 8298
+23:48:42 [INFO] Optimizations completed: 1700 / 8298
+23:49:23 [INFO] Optimizations completed: 1800 / 8298
+23:50:03 [INFO] Optimizations completed: 1900 / 8298
+23:50:45 [INFO] Optimizations completed: 2000 / 8298
+23:51:25 [INFO] Optimizations completed: 2100 / 8298
+23:52:04 [INFO] Optimizations completed: 2200 / 8298
+23:52:44 [INFO] Optimizations completed: 2300 / 8298
+23:53:23 [INFO] Optimizations completed: 2400 / 8298
+23:54:04 [INFO] Optimizations completed: 2500 / 8298
+23:54:46 [INFO] Optimizations completed: 2600 / 8298
+23:55:08 [DEBUG] day=996 speed=2 solver_status=infeasible
+23:55:08 [WARNING] FAILED day=996 speed=2 time=0.7923s key=char_20190103
+23:55:29 [INFO] Optimizations completed: 2700 / 8298
+23:56:11 [INFO] Optimizations completed: 2800 / 8298
+23:56:51 [INFO] Optimizations completed: 2900 / 8298
+23:57:31 [INFO] Optimizations completed: 3000 / 8298
+23:58:14 [INFO] Optimizations completed: 3100 / 8298
+23:58:55 [INFO] Optimizations completed: 3200 / 8298
+23:59:36 [INFO] Optimizations completed: 3300 / 8298
+00:00:17 [INFO] Optimizations completed: 3400 / 8298
+00:00:57 [INFO] Optimizations completed: 3500 / 8298
+00:01:40 [INFO] Optimizations completed: 3600 / 8298
+00:02:22 [INFO] Optimizations completed: 3700 / 8298
+00:03:03 [INFO] Optimizations completed: 3800 / 8298
+00:03:45 [INFO] Optimizations completed: 3900 / 8298
+00:04:27 [INFO] Optimizations completed: 4000 / 8298
+00:05:07 [INFO] Optimizations completed: 4100 / 8298
+00:05:48 [INFO] Optimizations completed: 4200 / 8298
+00:06:28 [INFO] Optimizations completed: 4300 / 8298
+00:07:07 [INFO] Optimizations completed: 4400 / 8298
+00:07:46 [INFO] Optimizations completed: 4500 / 8298
+00:08:26 [INFO] Optimizations completed: 4600 / 8298
+00:09:05 [INFO] Optimizations completed: 4700 / 8298
+00:09:44 [INFO] Optimizations completed: 4800 / 8298
+00:10:22 [INFO] Optimizations completed: 4900 / 8298
+00:11:04 [INFO] Optimizations completed: 5000 / 8298
+00:11:45 [INFO] Optimizations completed: 5100 / 8298
+00:11:48 [DEBUG] day=1814 speed=2 solver_status=infeasible
+00:11:48 [WARNING] FAILED day=1814 speed=2 time=0.5341s key=char_20220401
+00:12:26 [INFO] Optimizations completed: 5200 / 8298
+00:13:08 [INFO] Optimizations completed: 5300 / 8298
+00:13:49 [INFO] Optimizations completed: 5400 / 8298
+00:14:31 [INFO] Optimizations completed: 5500 / 8298
+00:15:13 [INFO] Optimizations completed: 5600 / 8298
+00:15:59 [INFO] Optimizations completed: 5700 / 8298
+00:16:41 [INFO] Optimizations completed: 5800 / 8298
+00:17:20 [INFO] Optimizations completed: 5900 / 8298
+00:18:01 [INFO] Optimizations completed: 6000 / 8298
+00:18:39 [INFO] Optimizations completed: 6100 / 8298
+00:19:20 [INFO] Optimizations completed: 6200 / 8298
+00:20:01 [INFO] Optimizations completed: 6300 / 8298
+00:20:39 [INFO] Optimizations completed: 6400 / 8298
+00:21:17 [INFO] Optimizations completed: 6500 / 8298
+00:21:55 [INFO] Optimizations completed: 6600 / 8298
+00:22:33 [INFO] Optimizations completed: 6700 / 8298
+00:23:13 [INFO] Optimizations completed: 6800 / 8298
+00:23:55 [INFO] Optimizations completed: 6900 / 8298
+00:24:35 [INFO] Optimizations completed: 7000 / 8298
+00:25:15 [INFO] Optimizations completed: 7100 / 8298
+00:25:55 [INFO] Optimizations completed: 7200 / 8298
+00:26:31 [INFO] Optimizations completed: 7300 / 8298
+00:27:07 [INFO] Optimizations completed: 7400 / 8298
+00:27:43 [INFO] Optimizations completed: 7500 / 8298
+00:28:19 [INFO] Optimizations completed: 7600 / 8298
+00:28:54 [INFO] Optimizations completed: 7700 / 8298
+00:29:28 [INFO] Optimizations completed: 7800 / 8298
+00:30:00 [INFO] Optimizations completed: 7900 / 8298
+00:30:33 [INFO] Optimizations completed: 8000 / 8298
+00:31:03 [DEBUG] day=2808 speed=2 solver_status=infeasible
+00:31:03 [WARNING] FAILED day=2808 speed=2 time=0.4736s key=char_20260320
+00:31:04 [DEBUG] day=2809 speed=1 solver_status=infeasible
+00:31:04 [WARNING] FAILED day=2809 speed=1 time=0.5207s key=char_20260323
+00:31:07 [INFO] Optimizations completed: 8100 / 8298
+00:31:33 [DEBUG] day=2838 speed=1 solver_status=infeasible
+00:31:33 [WARNING] FAILED day=2838 speed=1 time=0.4455s key=char_20260504
+00:31:40 [INFO] Optimizations completed: 8200 / 8298
+00:32:11 [INFO] Optimizations completed: 8298 / 8298
+00:32:11 [INFO] Optimization completed over 8298 portfolios. Total time: 3317.5997s
+00:32:11 [INFO] --- CLI Execution: Finished elastic_a_full_4 in 3319.44s ---
+00:32:11 [INFO] Run complete. Shape: (2766, 5654, 3) | Failed optimizations (NaNs): 4

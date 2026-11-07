@@ -1,0 +1,72 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\begin{document}
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[
+    group style={
+        group size=3 by 1,
+        horizontal sep=1.5cm, % Adjust this if you need more space between graphs
+    },
+    width=0.34\textwidth,
+    height=4cm,
+    xmode=log, log basis x=10,
+    xmin=0.0008, xmax=20000,
+    grid=both,
+    grid style={line width=0.2pt, draw=gray!30},
+    major grid style={line width=0.4pt, draw=gray!50},
+    tick label style={font=\scriptsize},
+    label style={font=\small},
+    title style={font=\small},
+]
+
+\nextgroupplot[
+    ymin=1, ymax=5.2,
+    xlabel={$\alpha$},
+    ylabel={$z$},
+    title={Tracking},
+]
+\addplot[
+    color=green!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_tracking_table.txt};
+
+% --- Graph 2: corr ---
+\nextgroupplot[
+    ymin=-0.1, ymax=0,
+    xlabel={$\alpha$},
+    ylabel={$z$},
+    title={Corr},
+    scaled y ticks=false, % <--- Prevents pgfplots from factoring out 10^-2
+    yticklabel style={
+        /pgf/number format/fixed,
+        /pgf/number format/precision=2,
+        /pgf/number format/zerofill,
+    }, % <--- Formats ticks as fixed decimals (e.g., -0.02 instead of -2 * 10^-2)
+]
+\addplot[
+    color=yellow!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_corr_table.txt};
+
+
+% --- Graph 3: turnover ---
+\nextgroupplot[
+    ymin=-0.3, ymax=0,
+    xlabel={$\alpha$},
+    ylabel={$z$},
+    title={Turnover},
+]
+\addplot[
+    color=blue!90!black, mark=*, mark size=1.2pt, line width=1pt,
+] table[x=alpha, y=z, col sep=space] {alpha_turnover_table.txt};
+
+\end{groupplot}
+\end{tikzpicture}
+\caption{Turnover, correlation, and tracking-error metrics across $\alpha$.}
+\label{fig:alpha_panels}
+\end{figure}
+
+\end{tikzpicture}
+\end{document}

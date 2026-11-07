@@ -1,0 +1,10 @@
+00:22:06 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_berhu_c_base.log
+00:22:06 [INFO] --- CLI Execution: Starting berhu_c_base ---
+00:22:07 [WARNING] No exact key for 20160102; using next available date char_20151231
+00:22:13 [INFO] Optimizations completed: 10 / 39
+00:22:20 [INFO] Optimizations completed: 20 / 39
+00:22:27 [INFO] Optimizations completed: 30 / 39
+00:22:34 [INFO] Optimizations completed: 39 / 39
+00:22:34 [INFO] Optimization completed over 39 portfolios. Total time: 27.1446s
+00:22:34 [INFO] --- CLI Execution: Finished berhu_c_base in 28.68s ---
+00:22:34 [INFO] Run complete. Shape: (13, 5654, 3) | Failed optimizations (NaNs): 0

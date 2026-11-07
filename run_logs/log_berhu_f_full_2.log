@@ -1,0 +1,89 @@
+18:19:41 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_berhu_f_full_2.log
+18:19:41 [INFO] --- CLI Execution: Starting berhu_f_full_2 ---
+18:20:31 [INFO] Optimizations completed: 100 / 7542
+18:21:19 [INFO] Optimizations completed: 200 / 7542
+18:22:08 [INFO] Optimizations completed: 300 / 7542
+18:22:58 [INFO] Optimizations completed: 400 / 7542
+18:23:47 [INFO] Optimizations completed: 500 / 7542
+18:24:36 [INFO] Optimizations completed: 600 / 7542
+18:25:24 [INFO] Optimizations completed: 700 / 7542
+18:26:13 [INFO] Optimizations completed: 800 / 7542
+18:27:02 [INFO] Optimizations completed: 900 / 7542
+18:27:37 [DEBUG] day=564 speed=0 solver_status=infeasible
+18:27:37 [WARNING] FAILED day=564 speed=0 time=1.2569s key=char_20170417
+18:27:53 [INFO] Optimizations completed: 1000 / 7542
+18:28:43 [DEBUG] day=607 speed=0 solver_status=infeasible
+18:28:43 [WARNING] FAILED day=607 speed=0 time=1.1526s key=char_20170616
+18:28:44 [INFO] Optimizations completed: 1100 / 7542
+18:29:34 [INFO] Optimizations completed: 1200 / 7542
+18:30:23 [INFO] Optimizations completed: 1300 / 7542
+18:31:13 [INFO] Optimizations completed: 1400 / 7542
+18:32:02 [INFO] Optimizations completed: 1500 / 7542
+18:32:51 [INFO] Optimizations completed: 1600 / 7542
+18:33:40 [INFO] Optimizations completed: 1700 / 7542
+18:34:27 [INFO] Optimizations completed: 1800 / 7542
+18:35:17 [INFO] Optimizations completed: 1900 / 7542
+18:36:08 [INFO] Optimizations completed: 2000 / 7542
+18:37:00 [INFO] Optimizations completed: 2100 / 7542
+18:37:49 [INFO] Optimizations completed: 2200 / 7542
+18:38:25 [DEBUG] day=996 speed=2 solver_status=infeasible
+18:38:25 [WARNING] FAILED day=996 speed=2 time=1.2502s key=char_20190103
+18:38:44 [INFO] Optimizations completed: 2300 / 7542
+18:39:37 [INFO] Optimizations completed: 2400 / 7542
+18:40:30 [INFO] Optimizations completed: 2500 / 7542
+18:41:21 [INFO] Optimizations completed: 2600 / 7542
+18:42:13 [INFO] Optimizations completed: 2700 / 7542
+18:43:06 [INFO] Optimizations completed: 2800 / 7542
+18:43:57 [INFO] Optimizations completed: 2900 / 7542
+18:44:47 [INFO] Optimizations completed: 3000 / 7542
+18:45:39 [INFO] Optimizations completed: 3100 / 7542
+18:46:30 [INFO] Optimizations completed: 3200 / 7542
+18:47:22 [INFO] Optimizations completed: 3300 / 7542
+18:48:15 [INFO] Optimizations completed: 3400 / 7542
+18:49:08 [INFO] Optimizations completed: 3500 / 7542
+18:50:00 [INFO] Optimizations completed: 3600 / 7542
+18:50:51 [INFO] Optimizations completed: 3700 / 7542
+18:51:42 [INFO] Optimizations completed: 3800 / 7542
+18:52:31 [INFO] Optimizations completed: 3900 / 7542
+18:53:19 [INFO] Optimizations completed: 4000 / 7542
+18:54:07 [INFO] Optimizations completed: 4100 / 7542
+18:54:55 [INFO] Optimizations completed: 4200 / 7542
+18:55:44 [INFO] Optimizations completed: 4300 / 7542
+18:56:31 [INFO] Optimizations completed: 4400 / 7542
+18:57:19 [INFO] Optimizations completed: 4500 / 7542
+18:58:07 [INFO] Optimizations completed: 4600 / 7542
+18:58:55 [INFO] Optimizations completed: 4700 / 7542
+18:59:06 [DEBUG] day=1814 speed=2 solver_status=infeasible
+18:59:06 [WARNING] FAILED day=1814 speed=2 time=0.5648s key=char_20220401
+18:59:42 [INFO] Optimizations completed: 4800 / 7542
+19:00:30 [INFO] Optimizations completed: 4900 / 7542
+19:01:18 [INFO] Optimizations completed: 5000 / 7542
+19:02:07 [INFO] Optimizations completed: 5100 / 7542
+19:02:57 [INFO] Optimizations completed: 5200 / 7542
+19:03:47 [INFO] Optimizations completed: 5300 / 7542
+19:04:38 [INFO] Optimizations completed: 5400 / 7542
+19:05:27 [INFO] Optimizations completed: 5500 / 7542
+19:06:12 [INFO] Optimizations completed: 5600 / 7542
+19:06:57 [INFO] Optimizations completed: 5700 / 7542
+19:07:43 [INFO] Optimizations completed: 5800 / 7542
+19:08:29 [INFO] Optimizations completed: 5900 / 7542
+19:09:14 [INFO] Optimizations completed: 6000 / 7542
+19:10:00 [INFO] Optimizations completed: 6100 / 7542
+19:10:46 [INFO] Optimizations completed: 6200 / 7542
+19:11:31 [INFO] Optimizations completed: 6300 / 7542
+19:12:18 [INFO] Optimizations completed: 6400 / 7542
+19:13:04 [INFO] Optimizations completed: 6500 / 7542
+19:13:50 [INFO] Optimizations completed: 6600 / 7542
+19:14:35 [INFO] Optimizations completed: 6700 / 7542
+19:15:23 [INFO] Optimizations completed: 6800 / 7542
+19:16:05 [INFO] Optimizations completed: 6900 / 7542
+19:16:47 [INFO] Optimizations completed: 7000 / 7542
+19:17:28 [INFO] Optimizations completed: 7100 / 7542
+19:18:10 [INFO] Optimizations completed: 7200 / 7542
+19:18:51 [INFO] Optimizations completed: 7300 / 7542
+19:19:31 [INFO] Optimizations completed: 7400 / 7542
+19:20:09 [INFO] Optimizations completed: 7500 / 7542
+19:20:25 [INFO] Optimizations completed: 7542 / 7542
+19:20:25 [INFO] Optimization completed over 7542 portfolios. Total time: 3642.3213s
+19:20:25 [INFO] --- CLI Execution: Finished berhu_f_full_2 in 3644.14s ---
+19:20:25 [INFO] Run complete. Shape: (2514, 5654, 3) | Failed optimizations (NaNs): 4

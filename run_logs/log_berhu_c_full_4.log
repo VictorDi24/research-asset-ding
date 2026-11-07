@@ -1,0 +1,103 @@
+20:55:41 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_berhu_c_full_4.log
+20:55:41 [INFO] --- CLI Execution: Starting berhu_c_full_4 ---
+20:56:39 [INFO] Optimizations completed: 100 / 7542
+20:57:38 [INFO] Optimizations completed: 200 / 7542
+20:58:35 [INFO] Optimizations completed: 300 / 7542
+20:59:30 [INFO] Optimizations completed: 400 / 7542
+21:00:27 [INFO] Optimizations completed: 500 / 7542
+21:01:23 [INFO] Optimizations completed: 600 / 7542
+21:02:19 [INFO] Optimizations completed: 700 / 7542
+21:03:15 [INFO] Optimizations completed: 800 / 7542
+21:04:11 [INFO] Optimizations completed: 900 / 7542
+21:04:53 [DEBUG] day=564 speed=0 solver_status=infeasible
+21:04:53 [WARNING] FAILED day=564 speed=0 time=1.3917s key=char_20170417
+21:05:12 [INFO] Optimizations completed: 1000 / 7542
+21:06:11 [DEBUG] day=607 speed=0 solver_status=infeasible
+21:06:11 [WARNING] FAILED day=607 speed=0 time=1.3463s key=char_20170616
+21:06:11 [INFO] Optimizations completed: 1100 / 7542
+21:07:11 [INFO] Optimizations completed: 1200 / 7542
+21:08:11 [INFO] Optimizations completed: 1300 / 7542
+21:09:06 [INFO] Optimizations completed: 1400 / 7542
+21:10:01 [INFO] Optimizations completed: 1500 / 7542
+21:10:56 [INFO] Optimizations completed: 1600 / 7542
+21:11:51 [INFO] Optimizations completed: 1700 / 7542
+21:12:47 [INFO] Optimizations completed: 1800 / 7542
+21:13:43 [INFO] Optimizations completed: 1900 / 7542
+21:14:41 [INFO] Optimizations completed: 2000 / 7542
+21:15:41 [INFO] Optimizations completed: 2100 / 7542
+21:16:36 [INFO] Optimizations completed: 2200 / 7542
+21:17:14 [DEBUG] day=996 speed=2 solver_status=infeasible
+21:17:14 [WARNING] FAILED day=996 speed=2 time=1.1089s key=char_20190103
+21:17:21 [WARNING] SolverError day=1000 speed=0: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+21:17:21 [WARNING] FAILED day=1000 speed=0 time=1.0970s key=char_20190109
+21:17:22 [DEBUG] day=1000 speed=1 solver_status=optimal_inaccurate
+21:17:22 [WARNING] FAILED day=1000 speed=1 time=1.3312s key=char_20190109
+21:17:35 [INFO] Optimizations completed: 2300 / 7542
+21:18:32 [INFO] Optimizations completed: 2400 / 7542
+21:19:29 [INFO] Optimizations completed: 2500 / 7542
+21:20:26 [INFO] Optimizations completed: 2600 / 7542
+21:21:23 [INFO] Optimizations completed: 2700 / 7542
+21:22:19 [INFO] Optimizations completed: 2800 / 7542
+21:23:16 [INFO] Optimizations completed: 2900 / 7542
+21:24:10 [INFO] Optimizations completed: 3000 / 7542
+21:25:04 [INFO] Optimizations completed: 3100 / 7542
+21:26:01 [INFO] Optimizations completed: 3200 / 7542
+21:26:55 [INFO] Optimizations completed: 3300 / 7542
+21:27:50 [INFO] Optimizations completed: 3400 / 7542
+21:28:46 [INFO] Optimizations completed: 3500 / 7542
+21:29:42 [INFO] Optimizations completed: 3600 / 7542
+21:30:38 [INFO] Optimizations completed: 3700 / 7542
+21:31:37 [INFO] Optimizations completed: 3800 / 7542
+21:32:30 [INFO] Optimizations completed: 3900 / 7542
+21:33:20 [INFO] Optimizations completed: 4000 / 7542
+21:34:11 [INFO] Optimizations completed: 4100 / 7542
+21:35:05 [INFO] Optimizations completed: 4200 / 7542
+21:36:00 [INFO] Optimizations completed: 4300 / 7542
+21:36:54 [INFO] Optimizations completed: 4400 / 7542
+21:37:45 [INFO] Optimizations completed: 4500 / 7542
+21:38:40 [INFO] Optimizations completed: 4600 / 7542
+21:39:37 [INFO] Optimizations completed: 4700 / 7542
+21:39:50 [DEBUG] day=1814 speed=2 solver_status=infeasible
+21:39:50 [WARNING] FAILED day=1814 speed=2 time=0.6194s key=char_20220401
+21:40:32 [INFO] Optimizations completed: 4800 / 7542
+21:41:25 [INFO] Optimizations completed: 4900 / 7542
+21:42:22 [INFO] Optimizations completed: 5000 / 7542
+21:43:16 [INFO] Optimizations completed: 5100 / 7542
+21:44:12 [INFO] Optimizations completed: 5200 / 7542
+21:45:06 [INFO] Optimizations completed: 5300 / 7542
+21:46:00 [INFO] Optimizations completed: 5400 / 7542
+21:46:52 [INFO] Optimizations completed: 5500 / 7542
+21:47:43 [INFO] Optimizations completed: 5600 / 7542
+21:48:32 [INFO] Optimizations completed: 5700 / 7542
+21:49:24 [INFO] Optimizations completed: 5800 / 7542
+21:50:15 [INFO] Optimizations completed: 5900 / 7542
+21:51:04 [INFO] Optimizations completed: 6000 / 7542
+21:51:16 [DEBUG] day=2249 speed=0 solver_status=optimal_inaccurate
+21:51:16 [WARNING] FAILED day=2249 speed=0 time=0.7274s key=char_20231226
+21:51:51 [INFO] Optimizations completed: 6100 / 7542
+21:52:39 [INFO] Optimizations completed: 6200 / 7542
+21:53:27 [INFO] Optimizations completed: 6300 / 7542
+21:54:20 [INFO] Optimizations completed: 6400 / 7542
+21:55:12 [INFO] Optimizations completed: 6500 / 7542
+21:56:06 [INFO] Optimizations completed: 6600 / 7542
+21:56:58 [INFO] Optimizations completed: 6700 / 7542
+21:57:54 [INFO] Optimizations completed: 6800 / 7542
+21:57:59 [DEBUG] day=2510 speed=0 solver_status=optimal_inaccurate
+21:57:59 [WARNING] FAILED day=2510 speed=0 time=0.7124s key=char_20250110
+21:58:44 [INFO] Optimizations completed: 6900 / 7542
+21:59:30 [INFO] Optimizations completed: 7000 / 7542
+22:00:16 [INFO] Optimizations completed: 7100 / 7542
+22:01:03 [INFO] Optimizations completed: 7200 / 7542
+22:01:50 [INFO] Optimizations completed: 7300 / 7542
+22:02:33 [INFO] Optimizations completed: 7400 / 7542
+22:03:15 [INFO] Optimizations completed: 7500 / 7542
+22:03:23 [WARNING] SolverError day=2747 speed=0: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+22:03:23 [WARNING] FAILED day=2747 speed=0 time=0.5749s key=char_20251219
+22:03:24 [WARNING] SolverError day=2747 speed=1: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+22:03:24 [WARNING] FAILED day=2747 speed=1 time=0.6975s key=char_20251219
+22:03:25 [WARNING] SolverError day=2747 speed=2: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+22:03:25 [WARNING] FAILED day=2747 speed=2 time=0.5982s key=char_20251219
+22:03:33 [INFO] Optimizations completed: 7542 / 7542
+22:03:33 [INFO] Optimization completed over 7542 portfolios. Total time: 4071.0544s
+22:03:33 [INFO] --- CLI Execution: Finished berhu_c_full_4 in 4072.88s ---
+22:03:33 [INFO] Run complete. Shape: (2514, 5654, 3) | Failed optimizations (NaNs): 6

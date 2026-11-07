@@ -1,0 +1,12 @@
+22:50:34 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_elastic_d_base.log
+22:50:34 [INFO] --- CLI Execution: Starting elastic_d_base ---
+22:50:37 [DEBUG] day=113 speed=0 solver_status=infeasible
+22:50:37 [WARNING] FAILED day=113 speed=0 time=0.8607s key=char_20150701
+22:50:40 [INFO] Optimizations completed: 10 / 42
+22:50:44 [INFO] Optimizations completed: 20 / 42
+22:50:48 [INFO] Optimizations completed: 30 / 42
+22:50:51 [INFO] Optimizations completed: 40 / 42
+22:50:52 [INFO] Optimizations completed: 42 / 42
+22:50:52 [INFO] Optimization completed over 42 portfolios. Total time: 15.9685s
+22:50:52 [INFO] --- CLI Execution: Finished elastic_d_base in 17.44s ---
+22:50:52 [INFO] Run complete. Shape: (14, 5654, 3) | Failed optimizations (NaNs): 1

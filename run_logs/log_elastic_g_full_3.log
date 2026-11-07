@@ -1,0 +1,8 @@
+10:25:11 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_elastic_g_full_3.log
+10:25:11 [INFO] --- CLI Execution: Starting elastic_g_full_3 ---
+10:25:14 [DEBUG] day=113 speed=0 solver_status=infeasible
+10:25:14 [WARNING] FAILED day=113 speed=0 time=0.5835s key=char_20150701
+10:25:20 [DEBUG] day=116 speed=0 solver_status=infeasible
+10:25:20 [WARNING] FAILED day=116 speed=0 time=0.6585s key=char_20150707
+10:25:24 [DEBUG] day=118 speed=0 solver_status=infeasible
+10:25:24 [WARNING] FAILED day=118 speed=0 time=0.7095s key=char_20150709

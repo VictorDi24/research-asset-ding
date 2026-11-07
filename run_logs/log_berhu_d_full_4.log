@@ -1,0 +1,101 @@
+19:06:18 [INFO] Logging this run to /home/cding/IdeaProjects/cvxpy_optimize/log_folder/log_berhu_d_full_4.log
+19:06:18 [INFO] --- CLI Execution: Starting berhu_d_full_4 ---
+19:07:13 [INFO] Optimizations completed: 100 / 7542
+19:08:07 [INFO] Optimizations completed: 200 / 7542
+19:09:04 [INFO] Optimizations completed: 300 / 7542
+19:10:00 [INFO] Optimizations completed: 400 / 7542
+19:10:54 [INFO] Optimizations completed: 500 / 7542
+19:11:47 [INFO] Optimizations completed: 600 / 7542
+19:12:38 [INFO] Optimizations completed: 700 / 7542
+19:13:30 [INFO] Optimizations completed: 800 / 7542
+19:14:24 [INFO] Optimizations completed: 900 / 7542
+19:15:02 [DEBUG] day=564 speed=0 solver_status=infeasible
+19:15:02 [WARNING] FAILED day=564 speed=0 time=1.2340s key=char_20170417
+19:15:18 [INFO] Optimizations completed: 1000 / 7542
+19:16:12 [DEBUG] day=607 speed=0 solver_status=infeasible
+19:16:12 [WARNING] FAILED day=607 speed=0 time=1.1704s key=char_20170616
+19:16:13 [INFO] Optimizations completed: 1100 / 7542
+19:17:06 [INFO] Optimizations completed: 1200 / 7542
+19:18:02 [INFO] Optimizations completed: 1300 / 7542
+19:19:00 [INFO] Optimizations completed: 1400 / 7542
+19:19:56 [INFO] Optimizations completed: 1500 / 7542
+19:20:54 [INFO] Optimizations completed: 1600 / 7542
+19:21:49 [INFO] Optimizations completed: 1700 / 7542
+19:22:48 [INFO] Optimizations completed: 1800 / 7542
+19:23:48 [INFO] Optimizations completed: 1900 / 7542
+19:24:40 [INFO] Optimizations completed: 2000 / 7542
+19:25:35 [INFO] Optimizations completed: 2100 / 7542
+19:26:30 [INFO] Optimizations completed: 2200 / 7542
+19:27:10 [DEBUG] day=996 speed=2 solver_status=infeasible
+19:27:10 [WARNING] FAILED day=996 speed=2 time=1.2495s key=char_20190103
+19:27:17 [WARNING] SolverError day=1000 speed=0: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+19:27:17 [WARNING] FAILED day=1000 speed=0 time=1.1756s key=char_20190109
+19:27:18 [DEBUG] day=1000 speed=1 solver_status=optimal_inaccurate
+19:27:18 [WARNING] FAILED day=1000 speed=1 time=1.2913s key=char_20190109
+19:27:31 [INFO] Optimizations completed: 2300 / 7542
+19:28:26 [INFO] Optimizations completed: 2400 / 7542
+19:29:23 [INFO] Optimizations completed: 2500 / 7542
+19:30:20 [INFO] Optimizations completed: 2600 / 7542
+19:31:17 [INFO] Optimizations completed: 2700 / 7542
+19:32:11 [INFO] Optimizations completed: 2800 / 7542
+19:33:06 [INFO] Optimizations completed: 2900 / 7542
+19:34:00 [INFO] Optimizations completed: 3000 / 7542
+19:34:53 [INFO] Optimizations completed: 3100 / 7542
+19:35:48 [INFO] Optimizations completed: 3200 / 7542
+19:36:42 [INFO] Optimizations completed: 3300 / 7542
+19:37:40 [INFO] Optimizations completed: 3400 / 7542
+19:38:36 [INFO] Optimizations completed: 3500 / 7542
+19:39:30 [INFO] Optimizations completed: 3600 / 7542
+19:40:24 [INFO] Optimizations completed: 3700 / 7542
+19:41:18 [INFO] Optimizations completed: 3800 / 7542
+19:42:09 [INFO] Optimizations completed: 3900 / 7542
+19:43:00 [INFO] Optimizations completed: 4000 / 7542
+19:43:51 [INFO] Optimizations completed: 4100 / 7542
+19:44:42 [INFO] Optimizations completed: 4200 / 7542
+19:45:33 [INFO] Optimizations completed: 4300 / 7542
+19:46:22 [INFO] Optimizations completed: 4400 / 7542
+19:47:11 [INFO] Optimizations completed: 4500 / 7542
+19:48:04 [INFO] Optimizations completed: 4600 / 7542
+19:48:55 [INFO] Optimizations completed: 4700 / 7542
+19:49:07 [DEBUG] day=1814 speed=2 solver_status=infeasible
+19:49:07 [WARNING] FAILED day=1814 speed=2 time=0.5923s key=char_20220401
+19:49:46 [INFO] Optimizations completed: 4800 / 7542
+19:50:42 [INFO] Optimizations completed: 4900 / 7542
+19:51:36 [INFO] Optimizations completed: 5000 / 7542
+19:52:31 [INFO] Optimizations completed: 5100 / 7542
+19:53:26 [INFO] Optimizations completed: 5200 / 7542
+19:54:24 [INFO] Optimizations completed: 5300 / 7542
+19:55:18 [INFO] Optimizations completed: 5400 / 7542
+19:56:07 [INFO] Optimizations completed: 5500 / 7542
+19:56:56 [INFO] Optimizations completed: 5600 / 7542
+19:57:43 [INFO] Optimizations completed: 5700 / 7542
+19:58:33 [INFO] Optimizations completed: 5800 / 7542
+19:59:22 [INFO] Optimizations completed: 5900 / 7542
+20:00:11 [INFO] Optimizations completed: 6000 / 7542
+20:00:23 [DEBUG] day=2249 speed=0 solver_status=optimal_inaccurate
+20:00:23 [WARNING] FAILED day=2249 speed=0 time=0.7281s key=char_20231226
+20:00:58 [INFO] Optimizations completed: 6100 / 7542
+20:01:47 [INFO] Optimizations completed: 6200 / 7542
+20:02:34 [INFO] Optimizations completed: 6300 / 7542
+20:03:25 [INFO] Optimizations completed: 6400 / 7542
+20:04:18 [INFO] Optimizations completed: 6500 / 7542
+20:05:11 [INFO] Optimizations completed: 6600 / 7542
+20:06:00 [INFO] Optimizations completed: 6700 / 7542
+20:06:50 [INFO] Optimizations completed: 6800 / 7542
+20:06:53 [DEBUG] day=2510 speed=0 solver_status=optimal_inaccurate
+20:06:53 [WARNING] FAILED day=2510 speed=0 time=0.5992s key=char_20250110
+20:07:36 [INFO] Optimizations completed: 6900 / 7542
+20:08:25 [INFO] Optimizations completed: 7000 / 7542
+20:09:12 [INFO] Optimizations completed: 7100 / 7542
+20:10:00 [INFO] Optimizations completed: 7200 / 7542
+20:10:48 [INFO] Optimizations completed: 7300 / 7542
+20:11:33 [INFO] Optimizations completed: 7400 / 7542
+20:12:20 [INFO] Optimizations completed: 7500 / 7542
+20:12:29 [WARNING] SolverError day=2747 speed=0: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+20:12:29 [WARNING] FAILED day=2747 speed=0 time=0.6500s key=char_20251219
+20:12:31 [WARNING] SolverError day=2747 speed=2: Solver 'CLARABEL' failed. Try another solver, or solve with verbose=True for more information.
+20:12:31 [WARNING] FAILED day=2747 speed=2 time=0.7231s key=char_20251219
+20:12:40 [INFO] Optimizations completed: 7542 / 7542
+20:12:40 [INFO] Optimization completed over 7542 portfolios. Total time: 3980.3112s
+20:12:40 [INFO] --- CLI Execution: Finished berhu_d_full_4 in 3982.14s ---
+20:12:40 [INFO] Run complete. Shape: (2514, 5654, 3) | Failed optimizations (NaNs): 6
