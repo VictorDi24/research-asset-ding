@@ -1,22 +1,24 @@
 # research-asset-ding
 GitHub research portfolio, including a PDF file of the paper
 
-To see the final results of the paper, navigate to final_submission/ and go to DING_VICTOR_06840.pdf.
+To see the final results of the paper, navigate to tex/ and open DING_VICTOR_06840.pdf.
 
-|--- archived_code/        # Archived code that is not used in project anymore
+|--- code/                      # Code used to iterate and optimize portfolios, create data files, process data, etc.
 
-|--- data/                 # Raw data that is graphed and analyzed in paper
+  |---> archived_code/          # Archived code that is not used anymore
 
-|--- drafts/               # Previous drafts of paper
+  |---> *.py                    # Active code
+  
+|--- tex/                       # .txt, .tex, .bib, etc. files used to generate final .pdf
 
-|--- final_submission/     # Figure, bibliography, and .pdf used for the final submission 
+  |---> DING.VICTOR.06840.pdf   # Final paper
 
-|--- important_code/       # Important Python code
+  |---> DING.VICTOR.06840       # LaTeX source code
 
-|--- practice_draft_graphs # Practice and draft graphs
+  |---> *.txt                   # .txt files containing processed data (plotted in graphs)
 
-|--- run_logs              # Log files created while running iterations of data
-
-|--- tex_editor/           # .txt, .tex, .bib, etc. files used to further edit project if needed
+  |---> bibliography.pdf        # Full bibliography
 
 |--- README.md             # This file
+
+|--- .gitignore
