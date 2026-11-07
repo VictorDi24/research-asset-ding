@@ -10,7 +10,7 @@ To see the final results of the paper, navigate to tex/ and open DING_VICTOR_068
 │   └── *.py                      # Active code
 ├── tex/                          # .txt, .tex, .bib, etc. files used to generate final .pdf
 │   ├── DING_VICTOR_06840.pdf     # Final paper
-│   ├── DING_VICTOR_06840/        # LaTeX source code
+│   ├── DING_VICTOR_06840.tex     # LaTeX source code
 │   ├── *.txt                     # .txt files containing processed data (plotted in graphs)
 │   └── bibliography.pdf          # Full bibliography
 ├── README.md                     # This file
