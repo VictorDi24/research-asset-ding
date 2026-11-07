@@ -1,3 +1,9 @@
+# research-asset-ding
+GitHub research portfolio, including a PDF file of the paper
+
+To see the final results of the paper, navigate to tex/ and open DING_VICTOR_06840.pdf.
+
+```text
 .
 ├── code/                         # Code used to iterate and optimize portfolios, create data files, process data, etc.
 │   ├── archived_code/            # Archived code that is not used anymore
@@ -9,3 +15,5 @@
 │   └── bibliography.pdf          # Full bibliography
 ├── README.md                     # This file
 └── .gitignore
+...
+```
