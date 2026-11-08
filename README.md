@@ -6,8 +6,8 @@ address the limitations of pure constraints.
 
 The Alpha Gate penalizes excess turnover above a soft threshold, with a higher hard bound acting as a strict
 safeguard. Regularization penalties widely used in regression are adapted to prune noisy trades. Elastic Net and the Berhu
-function both use L1 and L_2 penalties on turnovers, but differently: Elastic Net keeps both active at every trade
-size, whereas the Berhu Penalty applies L_1 below a threshold and L_2 above it.
+function both use L1 and L2 penalties on turnovers, but differently: Elastic Net keeps both active at every trade
+size, whereas the Berhu Penalty applies L1 below a threshold and L2 above it.
 
 We run various experiments with these penalties on ten years of daily long-short equity signals, evaluating turnover control,
 target-tracking loss, and trade sparsity across parameter ranges.
