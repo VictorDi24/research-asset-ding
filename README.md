@@ -1,14 +1,16 @@
-# research-asset-ding
+# Penalized Portfolio Optimization
 GitHub research portfolio, including a PDF file of the paper. To see the final project, open paper.pdf.
 
-This project utilizes Python solvers to optimize portfolios subjected to constraints and penalties.
-It establishes a background in portfolio optimization, then later implements three alternative
-approaches: the Alpha Gate, Elastic Net, and Berhu function. These are penalties that soften the
-aforementioned hard constraints. For example, the Alpha Gate allows the solver to exceed a strict
-total turnover (the sum of all individual turnovers), but simultaneously discourages it by
-incurring a penalty on the objective function. To assess the impacts and validity of these models,
-we iterated through ten of portfolios several times, using different models. Throughout the paper,
-we consider several strategies to make these programs more efficient.
+This research reviews practical considerations of long-short portfolio optimization problems. It studies a few penalty forms to
+address the limitations of pure constraints.
+
+The Alpha Gate penalizes excess turnover above a soft threshold, with a higher hard bound acting as a strict
+safeguard. Regularization penalties widely used in regression are adapted to prune noisy trades. Elastic Net and the Berhu
+function both use \(L_1\) and \(L_2\) penalties on turnovers, but differently: Elastic Net keeps both active at every trade
+size, whereas the Berhu Penalty applies \(L_1\) below a threshold and \(L_2\) above it.
+
+We run various experiments with these penalties on ten years of daily long-short equity signals, evaluating turnover control,
+target-tracking loss, and trade sparsity across parameter ranges.
 
 ```text
 ├── paper.pdf                     # Final paper
