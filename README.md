@@ -13,8 +13,6 @@ We run various experiments with these penalties on ten years of daily long-short
 target-tracking loss, and trade sparsity across parameter ranges.
 
 ```text
-├── paper.pdf                     # Final paper
-├── bibliography.pdf              # Full bibliography
 ├── code/                         # Code used to iterate and optimize portfolios, create data files, process data, etc.
 │   ├── archived_code/            # Archived code that is not used anymore
 │   └── *.py                      # Active code
@@ -22,6 +20,7 @@ target-tracking loss, and trade sparsity across parameter ranges.
 │   ├── DING_VICTOR_06840.tex     # LaTeX source code
 |   ├── references.bib            # bibliography
 │   └── *.txt                     # .txt files containing processed data (plotted in graphs)
+├── paper.pdf                     # Final paper
 ├── README.md                     # This file
 └── .gitignore
 ```
