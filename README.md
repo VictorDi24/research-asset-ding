@@ -17,7 +17,7 @@ target-tracking loss, and trade sparsity across parameter ranges.
 │   ├── archived_code/            # Archived code that is not used anymore
 │   └── *.py                      # Active code
 ├── tex/                          # .txt, .tex, .bib files used to generate final .pdf
-│   ├── DING_VICTOR_06840.tex     # LaTeX source code
+│   ├── paper.tex                 # LaTeX source code
 |   ├── references.bib            # bibliography
 │   └── *.txt                     # .txt files containing processed data (plotted in graphs)
 ├── paper.pdf                     # Final paper
