@@ -8,3 +8,7 @@ drafts/
 *.fdb_latexmk
 *.log
 *.synctex.gz
+*.npz
+__pycache__/
+venv/
+.zed/
