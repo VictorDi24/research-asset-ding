@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sp
 
 
-# defines constants
+# define constants
 @functools.lru_cache(maxsize=1)
 def get_config():
     return {
@@ -64,7 +64,7 @@ def generate_weights():
 
 
 def generate_bounds_masks(current_weights, target_weights, config):
-    # Strict limits from individual_turnover and abs_weight
+    # individual_turnover and abs_weight
     lb_stocks = np.maximum(
         -config["max_weight"],
         current_weights[: config["n_stocks"]] - config["individual_turnover"],
@@ -79,7 +79,7 @@ def generate_bounds_masks(current_weights, target_weights, config):
     adjust_pos = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
     force_pos = np.logical_and(pos_mask, adjust_pos)
 
-    # Truncate lower bound for positive
+    # Truncate lower bound
     lb_stocks[force_pos] = 0.0
 
     # Positive optimized variables
@@ -91,7 +91,7 @@ def generate_bounds_masks(current_weights, target_weights, config):
     adjust_neg = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
     force_neg = np.logical_and(neg_mask, adjust_neg)
 
-    # Truncate upper bound for negative
+    # Truncate upper bound
     ub_stocks[force_neg] = 0.0
 
     # Negative optimized variables

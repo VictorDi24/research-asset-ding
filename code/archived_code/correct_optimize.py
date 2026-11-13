@@ -36,36 +36,15 @@ class portfolio:
         data_path: str = "/home/cding/IdeaProjects/cvxpy_optimize/short_arr_a.npz",
     ) -> None:
 
-        # data_path used to be hard-coded inside generate_weights(), which only
-        # worked on one machine. It's now a constructor argument.
         self.data_path = data_path
-        self._data_cache = None  # populated once, lazily, by _load_data()
+        self._data_cache = None
 
         # Parameters subject to change
-        #
-        # NOTE: self.current_weights / self.target_weights (cp.Parameter()) were
-        # removed. They were declared as *scalar* Parameters, then immediately
-        # overwritten with plain numpy arrays in generate_weights() -- so they
-        # were never actually usable as CVXPY Parameters (a scalar Parameter
-        # can't hold a vector .value; try it and CVXPY raises
-        # "Invalid dimensions ... for Parameter value"), and after being
-        # overwritten they were never read anywhere else in the class. They
-        # were dead weight. weights_one/weights_two are threaded through as
-        # plain arrays/function arguments instead, same as the rest of the
-        # class already does.
         self.individual_turnover = cp.Parameter(nonneg=True, value=individual_turnover)
         self.max_weight = cp.Parameter(nonneg=True, value=max_weight)
         self.total_turnover = cp.Parameter(nonneg=True, value=total_turnover)
         self.day = cp.Parameter(nonneg=True, value=day)
         self.speed = cp.Parameter(nonneg=True, value=speed)
-        # alpha multiplies a squared term in the objective (alpha * z**2). For
-        # CVXPY to accept "Parameter * convex_term" as convex it needs to know
-        # the Parameter's sign, so this must be nonneg=True. The original code
-        # declared it with unknown sign, which fails DCP -- that's why it fell
-        # back to alpha.value (a bare python float) in the objective. That
-        # workaround silently defeats the whole point of using a Parameter:
-        # once alpha.value is baked into the expression as a constant, changing
-        # it later and re-solving the *same* Problem object has zero effect.
         self.alpha = cp.Parameter(nonneg=True, value=alpha)
         self.n_sectors = cp.Parameter(nonneg=True, value=n_sectors)
         # No change parameters
@@ -85,11 +64,6 @@ class portfolio:
     def generate_weights(
         self,
     ):
-        # weights_one/weights_two below are built from day_weights[0]/[1] --
-        # that hard-codes exactly 2 gates (current, target). number_gates is
-        # exposed as a configurable Parameter but nothing downstream
-        # generalizes past 2, so guard it explicitly instead of failing with a
-        # confusing shape error deep in generate_bounds_masks.
         assert int(self.number_gates.value) == 2, (
             "generate_weights() assumes number_gates == 2 (current vs. target "
             "gate) via day_weights[0]/day_weights[1]. Generalize this method "
@@ -133,7 +107,7 @@ class portfolio:
         weights_one,
         weights_two,
     ):
-        # Strict limits from individual_turnover and abs_weight
+        # individual_turnover and abs_weight
         lb_stocks = np.maximum(
             -self.max_weight.value,
             weights_one - self.individual_turnover.value,
@@ -148,7 +122,7 @@ class portfolio:
         adjust_pos = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_pos = np.logical_and(pos_mask, adjust_pos)
 
-        # Truncate lower bound for positive
+        # Truncate lower bound
         lb_stocks[force_pos] = 0.0
 
         # Positive optimized variables
@@ -160,7 +134,7 @@ class portfolio:
         adjust_neg = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_neg = np.logical_and(neg_mask, adjust_neg)
 
-        # Truncate upper bound for negative
+        # Truncate upper bound
         ub_stocks[force_neg] = 0.0
 
         # Negative optimized variables
@@ -175,20 +149,6 @@ class portfolio:
         return lb_stocks, ub_stocks, all_pos, all_neg, force_zero
 
     def create_sectors(self, weights_two, sector_labels):
-        """Build a sparse one-hot sector-membership matrix from real sector
-        classifications.
-
-        The previous implementation called np.random.rand(n_sectors, n_stocks)
-        -- i.e. it fabricated a brand new *random* sector map on every call.
-        The sector-neutrality constraints were therefore being checked against
-        pure noise: not reproducible between runs, and structurally
-        meaningless (a real sector map is close to one-hot -- each stock
-        belongs to ~1 sector -- not a dense random loading across all 15).
-
-        sector_labels: int array, shape (n_stocks,). sector_labels[i] is the
-            sector id (0 .. n_sectors-1) of stock i. You need to supply your
-            real classification here (e.g. GICS sector mapped to an int id).
-        """
         n_stocks = weights_two.shape[0]
         sector_labels = np.asarray(sector_labels)
         if sector_labels.shape[0] != n_stocks:
@@ -206,9 +166,6 @@ class portfolio:
         rows = sector_labels
         cols = np.arange(n_stocks)
         data = np.ones(n_stocks)
-        # Sparse one-hot membership -- also faster to canonicalize than the
-        # old dense random matrix, in the same spirit as the sparse selector /
-        # risk-term work already done elsewhere in this project.
         sector_weights = sp.csr_matrix(
             (data, (rows, cols)), shape=(n_sectors, n_stocks)
         )
@@ -396,10 +353,6 @@ class portfolio:
             correlation = stats.pearsonr(optimize_weights, weights_two)
             print(f"correlation: {correlation.statistic}")
         else:
-            # NOTE: the old code computed `n_stocks = optimize_weights.shape[0]`
-            # unconditionally at the top of this function, before this None
-            # check -- so a failed solve (optimize_weights = None) crashed with
-            # AttributeError instead of printing "optimization failed".
             print("optimization failed")
 
         print("----------------- OPTIMIZATION DETAILS: --------------")
@@ -457,10 +410,6 @@ class elastic_net(portfolio):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        # lambda_a/lambda_b multiply convex terms (an L1 norm and a sum of
-        # squares) in the objective -- same reasoning as self.alpha above:
-        # they must be nonneg=True for CVXPY to accept them as Parameters
-        # there, otherwise you're forced back to baking in .value as a float.
         self.lambda_a = cp.Parameter(nonneg=True, value=lambda_a)
         self.lambda_b = cp.Parameter(nonneg=True, value=lambda_b)
         print("initialized elastic_net")
@@ -485,17 +434,6 @@ class elastic_net(portfolio):
         ub_stocks,
         sector_labels,
     ):
-        # The old version of this method did:
-        #     constraints = super().generate_constraints(...)
-        # but generate_constraints() returns a *tuple*, (constraints, sector_weights).
-        # That tuple got wrapped in another list and run through
-        # functools.reduce(operator.add, ...), which raises
-        # `TypeError: can only concatenate tuple (not "list") to tuple`.
-        # And even if it hadn't crashed there, this method only returned a
-        # single value while run_elastic_optimize() unpacks two
-        # (`constraints, sector_weights = self.elastic_generate_constraints(...)`),
-        # which fails with its own unpacking error. In short: this was the
-        # actual reason the file as given can't run at all.
         constraints, sector_weights = super().generate_constraints(
             weights_one,
             weights_two,
@@ -509,21 +447,6 @@ class elastic_net(portfolio):
             ub_stocks,
             sector_labels,
         )
-
-        # Also removed the extra hard constraint that used to live here:
-        #     net = [cp.norm(x - weights_one, 1) <= self.individual_turnover]
-        # self.individual_turnover defaults to 0.005 and is meant as a
-        # *per-stock* box-turnover bound (see generate_bounds_masks). Using it
-        # to cap cp.norm(x - weights_one, 1) -- the *portfolio-wide* sum of
-        # absolute turnover -- caps total turnover at 0.5%, which is almost
-        # certainly infeasible for any real rebalance and duplicates the
-        # turnover control that already exists via y / z / self.total_turnover
-        # (total_turnover_component_constraint + v_constraint already make
-        # sum(y) an L1-turnover proxy, soft-capped at self.total_turnover via
-        # the alpha-penalized z gate). If you want a *hard* ceiling on top of
-        # that soft gate, add it back with self.total_turnover, not
-        # self.individual_turnover.
-
         return constraints, sector_weights
 
     def objective_elastic_net(self, x, y, z, weights_one, weights_two):
@@ -588,12 +511,6 @@ class elastic_net(portfolio):
             cp.Minimize(self.objective_elastic_net(x, y, z, weights_one, weights_two)),
             constraints,
         )
-
-        # NOTE: the old code called problem.solve(**clarabel_opts) here, then
-        # called it *again* inside run_optimize() below -- i.e. every call to
-        # run_elastic_optimize solved the identical problem twice, and the
-        # timing measured around the first solve was never even printed.
-        # run_optimize() below is now the single solve call.
         (
             optimize_weights,
             buffers,

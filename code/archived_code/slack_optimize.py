@@ -95,7 +95,7 @@ class portfolio:
         weights_one,
         weights_two,
     ):
-        # Strict limits from individual_turnover and abs_weight
+        #individual_turnover and abs_weight
         lb_stocks = np.maximum(
             -self.max_weight.value,
             weights_one - self.individual_turnover.value,
@@ -110,7 +110,7 @@ class portfolio:
         adjust_pos = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_pos = np.logical_and(pos_mask, adjust_pos)
 
-        # Truncate lower bound for positive
+        # Truncate lower bound
         lb_stocks[force_pos] = 0.0
 
         # Positive optimized variables
@@ -122,7 +122,7 @@ class portfolio:
         adjust_neg = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_neg = np.logical_and(neg_mask, adjust_neg)
 
-        # Truncate upper bound for negative
+        # Truncate upper bound
         ub_stocks[force_neg] = 0.0
 
         # Negative optimized variables

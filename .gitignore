@@ -1,5 +1,6 @@
 practice_draft_graphs/
 drafts/
+tex/paper.pdf
 *.out
 *.fls
 *.aux

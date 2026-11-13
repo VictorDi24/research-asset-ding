@@ -49,7 +49,7 @@ logger.addHandler(console_handler)
 
 _case_file_handler: logging.FileHandler | None = None
 
-#Retiried handler and log infrastructure
+#Retired handler and log infrastructure
 # File: normal, one line per entry
 # file_handler = logging.FileHandler(BASE_DIR / "optimizer_debug.log", mode="w")
 # file_handler.setLevel(logging.DEBUG)
@@ -915,15 +915,15 @@ class huber_berhu(huber_penalty, berhu_penalty):
         super().__init__(**kwargs)
         print("initialized huber_berhu")
 
-        # Huber specific parameters
+        # Huber parameters
         self.threshold_huber = cp.Parameter(nonneg=True, value=threshold_huber)
         self.scale_huber = cp.Parameter(nonneg=True, value=scale_huber)
 
-        # Berhu specific parameters
+        # Berhu parameters
         self.threshold_berhu = cp.Parameter(nonneg=True, value=threshold_berhu)
         self.scale_berhu = cp.Parameter(nonneg=True, value=scale_berhu)
 
-        # Override the shared names from parent classes to avoid confusion
+        # Override shared names from parent classes
         self.threshold = self.threshold_huber
         self.scale = self.scale_huber
 
@@ -939,7 +939,7 @@ class huber_berhu(huber_penalty, berhu_penalty):
 
         if optimize_weights is not None:
             # Calculate and print Huber penalty
-            # Note: Using weights_two to be consistent with the objective function definition
+            # NTS: Using weights_two
             diff = optimize_weights.value - weights_two
             M = self.threshold_huber.value
             abs_diff = np.abs(diff)
@@ -960,7 +960,7 @@ class huber_berhu(huber_penalty, berhu_penalty):
 #-------------------------
 
 #----Finding specific day index----
-# Converts key into date string
+# Convert key into date string
 def _key_to_date(key: str) -> str:
     return key.split("_")[-1]
 
@@ -983,7 +983,7 @@ def find_day_index(day: str | datetime):
         pos = 1
     matched = keys[pos]
     if dates[pos] != date_str:
-        # fall back to the previous available date
+        # fall back
         logger.warning(
             f"No exact key for {date_str}; using next available date {matched}"
         )
@@ -991,7 +991,7 @@ def find_day_index(day: str | datetime):
     matched = keys[pos]
     return pos, matched
 
-#Defaults to 11 year runner
+#Defaults to 10 year runner
 def loop_optimization(
     start_day: str = "2016-01-04",
     end_day: str = "2025-12-31",
@@ -1028,14 +1028,12 @@ def loop_optimization(
     num_stocks = np.full((num_days, 3), np.nan)
     below_eps_values = np.full((num_days, 3), np.nan)
 
-    # Inject required arguments for file passing to keep the cases dictionary clean
     portfolio_kwargs.setdefault("pass_file", True)
     portfolio_kwargs.setdefault("assets_on", on_off)
     portfolio_kwargs.setdefault("assets", delta)
     portfolio_kwargs.setdefault("printouts", False)
     portfolio_kwargs.setdefault("alpha_on", False)
 
-    # Instantiate the specific portfolio class dynamically
     port = portfolio_class(**portfolio_kwargs)
 
     start_time = time.perf_counter()
@@ -1050,7 +1048,6 @@ def loop_optimization(
             port.day.value = current_day
             iter_start = time.perf_counter()
 
-            # run_optimize() correctly returns optimized_weights, gate_a for all subclasses
             optimized_weights, gate_a = port.run_optimize()
             iter_time = time.perf_counter() - iter_start
 
@@ -1192,7 +1189,7 @@ def main():
         print("-" * 60)
         sys.exit(0)
 
-    # --- Validate case argument ---
+    # ---- Validate case argument ---
     if not args.case:
         parser.error("the following arguments are required: -c/--case (or use --list-cases)")
 
@@ -1201,27 +1198,25 @@ def main():
         print("Use --list-cases to see available options.")
         sys.exit(1)
 
-    # --- Extract function and kwargs ---
+    # --- Take function and kwargs ---
     func, kwargs = cases[args.case]
     kwargs["save_filename"] = results_folder / f"results_{args.case}.npz"
-    # Per-case log file
+    # log file
     log_path = attach_case_log_file(args.case)
     logger.info(f"Logging this run to {log_path}")
 
-    # --- Apply CLI overrides ---
+    # --- CLI overrides ---
     if args.log_every is not None:
         kwargs["log_every"] = args.log_every
     if args.output is not None:
-        # Ensure the directory exists if a custom path is provided
         out_path = Path(args.output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         kwargs["save_filename"] = str(out_path)
 
-    # Drill down into nested portfolio_kwargs if needed
     if args.turnover is not None:
         kwargs.setdefault("portfolio_kwargs", {})["total_turnover"] = args.turnover
 
-    # ---- Execute ----
+    # Execution-
     logger.info(f"--- CLI Execution: Starting {args.case} ---")
     start_time = time.perf_counter()
 
@@ -1230,7 +1225,7 @@ def main():
     end_time = time.perf_counter()
     logger.info(f"--- CLI Execution: Finished {args.case} in {end_time - start_time:.2f}s ---")
 
-    # Quick terminal feedback
+    # Terminal feedback
     nan_count = np.isnan(result[:,0,:]).sum()
     logger.info(f"Run complete. Shape: {result.shape} | Failed optimizations (NaNs): {nan_count}")
     return result, turnover_values, correlation_values, tracking_error_values, day_success, below_eps_values, parameters

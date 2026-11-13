@@ -87,10 +87,6 @@ class portfolio:
         self.current_weights = cp.Parameter(weights_one.shape[0], value=weights_one)
         self.target_weights = cp.Parameter(weights_two.shape[0], value=weights_two)
 
-        # s/t are BerHu-specific auxiliary variables. The base class has no
-        # use for them, but returning a uniform 6-tuple here lets a single
-        # run_optimize drive every subclass without branching or an
-        # overridden solve routine in berhu_penalty.
         return weights_one, weights_two, x, z, None, None
 
     def generate_bounds_masks(
@@ -98,7 +94,7 @@ class portfolio:
         weights_one,
         weights_two,
     ):
-        # Strict limits from individual_turnover and abs_weight
+        # individual_turnover and abs_weight
         lb_stocks = np.maximum(
             -self.max_weight.value,
             weights_one - self.individual_turnover.value,
@@ -113,7 +109,7 @@ class portfolio:
         adjust_pos = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_pos = np.logical_and(pos_mask, adjust_pos)
 
-        # Truncate lower bound for positive
+        # Truncate lower bound
         lb_stocks[force_pos] = 0.0
 
         # Positive optimized variables
@@ -125,7 +121,7 @@ class portfolio:
         adjust_neg = np.logical_and(ub_stocks >= 0, lb_stocks <= 0)
         force_neg = np.logical_and(neg_mask, adjust_neg)
 
-        # Truncate upper bound for negative
+        # Truncate upper bound
         ub_stocks[force_neg] = 0.0
 
         # Negative optimized variables
@@ -439,17 +435,8 @@ class berhu_penalty(portfolio):
             lb_stocks,
             ub_stocks,
         )
-        # Chained comparisons (0 <= s <= threshold) don't work on cvxpy
-        # expressions -- Python evaluates them as `(0 <= s) and (s <= thresh)`,
-        # and cvxpy explicitly forbids truth-testing a Constraint. Each bound
-        # needs to be its own inequality.=None
         bound_s = [s >= 0, s <= self.threshold]
         bound_t = [t >= 0]
-        # `constraints` returned from super() is already a flat list of
-        # Constraint objects (the base class did its own reduce). Simple
-        # list concatenation is correct here -- appending bound_s/bound_t as
-        # single list elements and re-reducing over operator.add fails,
-        # since a bare Constraint doesn't support "+" against another one.
         constraints = constraints + bound_s + bound_t
         return constraints, sector_weights
 
