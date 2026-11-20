@@ -10,6 +10,7 @@ tex/paper.pdf
 *.log
 *.synctex.gz
 *.npz
+*.h5
 __pycache__/
 venv/
 .zed/

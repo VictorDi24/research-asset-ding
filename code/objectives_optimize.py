@@ -1,6 +1,5 @@
 import argparse
 import functools
-from typing import override
 import h5py
 import operator
 import random
@@ -20,19 +19,19 @@ from pathlib import Path
 #warnings.filterwarnings("error", category=RuntimeWarning)
 
 random.seed(21)
-BASE_DIR = Path(__file__).resolve().parent
-results_folder = BASE_DIR / "results_folder"
-# results_folder.mkdir(parents=True, exist_ok=True)
-log_folder = BASE_DIR / "log_folder"
-# log_folder.mkdir(parents=True, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent.parent
+results_folder = BASE_DIR / "npz_a"
+results_folder.mkdir(parents=True, exist_ok=True)
+run_logs = BASE_DIR / "run_logs"
+run_logs.mkdir(parents=True, exist_ok=True)
 
 
-file_weights = BASE_DIR / "short_arr_a.npz"
+# file_weights = BASE_DIR / "short_arr_a.npz"
 file_weights_long = BASE_DIR / "arr.npz"
-file_sectors = BASE_DIR / "sector.h5"
-data_file_path = BASE_DIR / "optimized_portfolio_copy.npz"
+# file_sectors = BASE_DIR / "sector.h5"
+# data_file_path = BASE_DIR / "optimized_portfolio_copy.npz"
 all_attributes = BASE_DIR / "hrs1.h5"
-no_gating_a = BASE_DIR / "no_gating_assets.npz"
+# no_gating_a = BASE_DIR / "no_gating_assets.npz"
 
 #Logger setup
 logger = logging.getLogger("Optimizer")
@@ -70,7 +69,7 @@ def attach_case_log_file(case_name: str) -> Path:
             pass
         _case_file_handler = None
 
-    log_path = log_folder / f"log_{case_name}.log"
+    log_path = run_logs / f"log_{case_name}.log"
     fh = logging.FileHandler(log_path, mode="w")   # one file per run, overwrite
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(
