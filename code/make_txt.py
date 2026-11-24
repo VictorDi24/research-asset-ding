@@ -18,14 +18,13 @@ from scipy import stats
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-copy_results = BASE_DIR / "copy_results"
-results_folder = BASE_DIR / "results_folder"
-python_graphs = BASE_DIR / "python_graphs"
+npz_stacked = BASE_DIR / "npz_stacked"
+python_graphs = BASE_DIR / "practice_draft_graphs"
 latex_stock = BASE_DIR / "latex_stock"
-stacked_berhu = copy_results / "berhu_stacked.npz"
-stacked_elastic = copy_results / "elastic_stacked_added.npz"
-stacked_alpha = copy_results / "alpha_stacked.npz"
-no_penalty = copy_results / "results_normal_a_full.npz"
+stacked_berhu = npz_stacked / "berhu_stacked_additional.npz"
+stacked_elastic = npz_stacked / "elastic_stacked_added.npz"
+stacked_alpha = npz_stacked / "alpha_stacked.npz"
+no_penalty = npz_stacked / "results_normal_a_full.npz"
 arr = BASE_DIR / "arr.npz"
 
 #

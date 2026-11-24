@@ -17,18 +17,17 @@ from datetime import datetime
 from scipy import stats
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
-copied_results_folder = BASE_DIR / "copy_results"
-results_folder = BASE_DIR / "results_folder"
-coarse_prefixes = [
-    'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r','s','t','u','v','w','x', 'y', 'z']
-# coarse_indices = [4,5,6]
+BASE_DIR = Path(__file__).resolve().parent.parent
+copied_results_folder = BASE_DIR / "npz_stacked"
+results_folder = BASE_DIR / "npz_a"
+coarse_prefixes = ['a','b','c','d','e','f','g']
+coarse_indices = [6,7,8]
 # fine_prefixes = ['a', 'b', 'c', 'd', 'e']
 # fine_indices = [8,9,10]
 
 arrays = []
 
-port_type = "alpha"
+port_type = "berhu"
 
 #---------------
 # Additional elastic runs
@@ -60,7 +59,6 @@ def main():
     #                     f"{p.name}: {k} shape {f[k].shape} != {shapes[k]}"
     #                 )
 
-    # # Stack one label at a time to bound peak memory
     # out_path = copied_results_folder / f"{port_type}_turnover_stacked_all.npz"
     # stacked = {}
     # n = len(paths)
@@ -80,12 +78,11 @@ def main():
 
     # -----------------
     # ELASTIC NET AND BERHU
-    #
-    port_type = "elastic"
+    # -----------------
+    port_type = "berhu"
 
-    indices = [11, 12]
-    prefixes = ['a', 'b', 'c', 'd', 'e', 'f',
-                'g', 'h', 'i', 'j', 'k', 'l']
+    indices = [6,7,8]
+    prefixes = ['a','b','c','d','e','f','g']
 
     paths = []
     for prefix in prefixes:
@@ -111,7 +108,7 @@ def main():
                     )
 
     # Stack one label at a time to bound peak memory
-    out_path = copied_results_folder / f"{port_type}_stacked_added.npz"
+    out_path = copied_results_folder / f"{port_type}_stacked_additional.npz"
     stacked = {}
     n = len(paths)
 
@@ -130,49 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# -------------------------
-# results in kill ipython
-# -------------------------
-# for prefix in coarse_prefixes:
-#     for i in coarse_indices:
-#         arrays.append(np.load(copied_results_folder / f"results_{port_type}_{prefix}_full_{i}_copy.npz"))
-
-# for prefix in fine_prefixes:
-#     for i in fine_indices:
-#         arrays.append(np.load(copied_results_folder / f"results_{port_type}_{prefix}_full_{i}_copy.npz"))
-
-
-# labels = arrays[0].files
-
-# stacked = {
-#     label: np.stack([f[label] for f in arrays], axis=0)
-#     for label in labels
-# }
-
-# np.savez_compressed(copied_results_folder / f"{port_type}_stacked.npz", **stacked)
-
-# -------------------------
-# legacy
-# -------------------------
-# for prefix in prefixes:
-#     for i in indices:
-#         save_filename = f"results_{type}_{prefix}_full_copy"
-
-#         data = np.load(copied_results_folder / f"results_{type}_{prefix}_full_{i}.npz")
-
-#         result = data["result"]
-#         turnover = data["turnover"]
-#         correlation = data["correlation"]
-#         tracking_error = data["tracking_error"]
-#         below_eps = data["below_eps"]
-#         day_success = data["day_success"]
-#         parameters = data["parameters"]
-#         num_stocks = data["num_stocks"]
-#         penalty_values = data["penalty_values"]
-#         np.savez_compressed(copied_results_folder / save_filename, result=result, turnover=turnover, correlation=correlation, tracking_error=tracking_error,
-#         day_success=day_success,
-#         below_eps = below_eps,
-#         parameters=parameters,
-#         num_stocks=num_stocks,
-#         penalty_values=penalty_values
